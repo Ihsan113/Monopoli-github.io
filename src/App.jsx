@@ -812,7 +812,17 @@ STRICT OUTPUT JSON MURNI:
                  payload = BOARD_TILES.find(t => propertiesRef.current[t.id]?.ownerId && propertiesRef.current[t.id]?.ownerId !== currentPlayer.id && !propertiesRef.current[t.id]?.isMortgaged);
              } else if ((currentPlayer.buffs || []).includes('CUSTOM_TELEPORT') && Math.random() < 0.3) {
                  action = 'PREPARE_CUSTOM_TELEPORT';
-                 payload = 55; 
+                 
+                 // --- LOGIKA BARU BOT TELEPORT (SMART BOT) ---
+                 const jktProp = propertiesRef.current[55];
+                 // Cek apakah Jakarta kosong (belum dibeli) ATAU milik bot itu sendiri
+                 if (!jktProp || jktProp.ownerId === currentPlayer.id) {
+                     payload = 55; // Aman bos! Gas ke Jakarta buat beli/upgrade.
+                 } else {
+                     payload = 0;  // Bahaya ada musuh! Mending teleport ke START (petak 0) ambil gaji Rp200K aja.
+                 }
+
+
              } else {
                  const mortgagedProps = BOARD_TILES.filter(t => propertiesRef.current[t.id]?.ownerId === currentPlayer.id && propertiesRef.current[t.id]?.isMortgaged);
                  let canRedeem = null;
@@ -826,6 +836,7 @@ STRICT OUTPUT JSON MURNI:
                          break;
                      }
                  }
+
 
                  if (canRedeem && Math.random() < 0.8) { 
                      action = 'BOT_EXECUTE_TEBUS';
@@ -999,11 +1010,17 @@ STRICT OUTPUT JSON MURNI:
 
           // Ambil data uang pemilik lahan saat ini dari memori (ref)
         const ownerObj = playersRef.current.find(p => p.id === ownerId);
-        const oOld = ownerObj ? (ownerObj.money || 0) : 0;
-        const oNew = oOld + rentAmt;
+const oOld = ownerObj ? (ownerObj.money || 0) : 0;
 
-        // Log ditaruh di luar biar gak tereksekusi ganda sama React Strict Mode
-        addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${rentAmt}K. (Saldo: Rp${oOld}K ➡️ Rp${oNew}K)`);
+// LOGIKA LAMA (UANG GAIB):
+// const oNew = oOld + rentAmt; 
+
+// LOGIKA BARU (MASUK AKAL):
+const actualPaid = player.money > 0 ? Math.min(rentAmt, player.money) : 0;
+const oNew = oOld + actualPaid;
+
+addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPaid}K. (Saldo: Rp${oOld}K ➡️ Rp${oNew}K)`);
+
 
         // Baru update uang pemiliknya
         updatePlayerState(ownerId, { money: oNew });
@@ -1180,13 +1197,16 @@ STRICT OUTPUT JSON MURNI:
         setTimeout(() => { evaluateTile(BOARD_TILES[payload], playersRef.current[turnIndex]); }, 500);
         break;
 
-      case 'EXECUTE_KUDETA':
+            case 'EXECUTE_KUDETA':
         updatePlayerState(player.id, p => ({ buffs: consumeCard(p.buffs, 'FORCE_ACQUIRE') }));
         setProperties(prev => ({ ...prev, [payload.id]: { ...propertiesRef.current[payload.id], ownerId: player.id } }));
         addLog(`👑 KUDETA KARTU VIP! ${player.name} merampas hak milik properti ${payload.name} secara paksa dan gratis!`);
         playSound('win');
-        setActiveModal('END_TURN');
+        
+        // FIX: Biar bot tetap ngocok dadu setelah pamer kekuatan jalur VIP
+        if(player.isBot) setTimeout(() => handleAction('ROLL'), 1500);
         break;
+
 
       case 'EXECUTE_FREE_REDEEM':
         updatePlayerState(player.id, p => ({ buffs: consumeCard(p.buffs, 'FREE_REDEEM') }));
@@ -2978,6 +2998,24 @@ STRICT OUTPUT JSON MURNI:
                 );
              })}
          </div>
+{/* ======================================================= */}
+         {/* TEMPEL KODE BERITA BERJALANNYA DI SINI BOSKU!!! */}
+         {/* BERITA BERJALAN ALA BURSA EFEK */}
+         <div className="w-full max-w-[800px] shrink-0 bg-slate-900 border border-slate-800 rounded-xl flex items-center px-2 py-1.5 overflow-hidden shadow-inner">
+            <div className="bg-red-600 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded mr-2 shrink-0 z-10 shadow-md">INFO +62</div>
+            <div className="flex-1 overflow-hidden whitespace-nowrap mask-edges">
+               <div className="animate-ticker inline-block text-[9px] md:text-[10px] font-mono font-bold text-slate-300">
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+                  <span className="text-orange-300 mx-4">🥚 TELUR: Rp{marketPrices.telur}K</span>
+                  <span className="text-yellow-500 mx-4">🌾 PADI: Rp{marketPrices.padi}K</span>
+                  {/* Di-copy 2x biar jalannya nyambung terus */}
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+               </div>
+            </div>
+         </div>
+         {/* ======================================================= */}
 
       </div>
 
@@ -3568,6 +3606,19 @@ STRICT OUTPUT JSON MURNI:
       <style dangerouslySetInnerHTML={{__html: `
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* TAMBAHIN KODE ANIMASI INI DI SINI */
+        @keyframes ticker {
+          0% { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        .animate-ticker {
+          animation: ticker 15s linear infinite;
+        }
+        .mask-edges {
+          -webkit-mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+          mask-image: linear-gradient(to right, transparent, black 5%, black 95%, transparent);
+        }
       `}} />
     </div>
   );
