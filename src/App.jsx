@@ -151,6 +151,7 @@ export default function App() {
   const [properties, setProperties] = useState({}); 
   const [logs, setLogs] = useState([]);
   const [dice, setDice] = useState([1, 1]);
+  const diceRef = useRef([1, 1]);
   const [goldPrice, setGoldPrice] = useState(100); 
   const [marketPrices, setMarketPrices] = useState({ gandum: 15, telur: 25, padi: 40 }); 
   const [tick, setTick] = useState(0); 
@@ -890,8 +891,8 @@ STRICT OUTPUT JSON MURNI:
        return 50 * stationsOwned;
     }
     if (tile.type === 'utility') {
-       const utilsOwned = BOARD_TILES.filter(t => t.type === 'utility' && propertiesRef.current[t.id]?.ownerId === ownerId && !propertiesRef.current[t.id]?.isMortgaged).length;
-       return (dice[0] + dice[1]) * (utilsOwned >= 2 ? 20 : 10);
+       const utilsOwned = BOARD_TILES.filter(t => t.type === 'utility' && propertiesRef.current[t.id]?.ownerId === ownerId && !propertiesRef.current[t.id]?.isMortgaged).length;      
+       return (diceRef.current[0] + diceRef.current[1]) * (utilsOwned >= 2 ? 20 : 10);
     }
     if (tile.type === 'agriculture' || tile.type === 'mine') return 0;
     
@@ -1042,6 +1043,7 @@ STRICT OUTPUT JSON MURNI:
         playSound('dice');
         let dJail = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
         setDice(dJail);
+        diceRef.current = dJail;
         await sleep(1000);
         
         if (dJail[0] === dJail[1]) { 
@@ -1072,8 +1074,9 @@ STRICT OUTPUT JSON MURNI:
         setUiLocked(true); // Anti-Spam
         setActiveModal('ROLLING');
         playSound('dice');
-        let tempDice = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
+                let tempDice = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
         setDice(tempDice);
+        diceRef.current = tempDice;
         await sleep(1000); 
         const totalRoll = tempDice[0] + tempDice[1];
         addLog(`🎲 MELEMPAR DADU: ${player.name} melangkah maju sejauh ${totalRoll} petak.`);
@@ -2186,7 +2189,7 @@ STRICT OUTPUT JSON MURNI:
           </button>
         </div>
 
-                {/* MODAL TUTORIAL / INFO PANDUAN GAME */}
+                        {/* MODAL TUTORIAL / INFO PANDUAN GAME */}
         {showTutorial && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowTutorial(false)}>
             <div className="bg-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-blue-500/50 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -2219,7 +2222,7 @@ STRICT OUTPUT JSON MURNI:
                      <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
                         <li><b>Lahan Tani & Tambang:</b> Menghasilkan aset (Gandum/Telur/Padi/Emas) secara otomatis tiap waktu tertentu. <b>Upgrade (Maks Lv 3)</b> untuk mempercepat waktu panen!</li>
                         <li><b>Pasar Tani:</b> Jual hasil panenmu di menu <b>PASAR</b> (Atas layar). Harga fluktuatif tiap giliran.</li>
-                        <li><b>Stasiun Kereta:</b> Punya >1 stasiun? Kamu bisa bayar Rp50K untuk <b>Teleportasi (Fast-Travel)</b> antar stasiunmu!</li>
+                        <li><b>Stasiun Kereta:</b> Punya &gt;1 stasiun? Kamu bisa bayar Rp50K untuk <b>Teleportasi (Fast-Travel)</b> antar stasiunmu!</li>
                      </ul>
                   </div>
 
@@ -2268,9 +2271,9 @@ STRICT OUTPUT JSON MURNI:
                               <li><b>Teleport Bebas:</b> Tap kartu di Profil sebelum kocok dadu. Pindah ke petak mana saja!</li>
                               <li><b>Pemutihan Pinjol:</b> Tap kartu di Profil. Hutang bank lunas Rp0 seketika!</li>
                               <li><b>Bebas Penjara:</b> Muncul tombol khusus saat kamu masuk penjara.</li>
-                              <li><b>Kudeta Lahan:</b> Tap lahan musuh -> Muncul tombol "Kudeta Lahan". Ambil lahan mereka GRATIS!</li>
-                              <li><b>Sultan Mendadak:</b> Tap propertimu yg mau diupgrade -> Muncul tombol "Upgrade Max". Langsung Mentok Level 5 GRATIS!</li>
-                              <li><b>Tebus Gadai:</b> Tap lahanmu yg digadai -> Muncul tombol "Tebus Gratis".</li>
+                              <li><b>Kudeta Lahan:</b> Tap lahan musuh &rarr; Muncul tombol "Kudeta Lahan". Ambil lahan mereka GRATIS!</li>
+                              <li><b>Sultan Mendadak:</b> Tap propertimu yg mau diupgrade &rarr; Muncul tombol "Upgrade Max". Langsung Mentok Level 5 GRATIS!</li>
+                              <li><b>Tebus Gadai:</b> Tap lahanmu yg digadai &rarr; Muncul tombol "Tebus Gratis".</li>
                               <li><b>Auto Win Lelang:</b> Saat giliranmu nawar lelang, tekan tombol VIP buat menang instan GRATIS!</li>
                            </ul>
                         </div>
