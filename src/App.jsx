@@ -929,8 +929,11 @@ STRICT OUTPUT JSON MURNI:
                       (player.assets?.padi || 0) * marketPrices.padi;
     const antiqueValue = (player.antiques || []).reduce((sum, a) => sum + a.val, 0);
 
-    return (player.money || 0) + assetValue + ((player.gold || 0) * goldPrice) + agriValue + antiqueValue - (player.debt || 0);
-  };
+    // Bungkus semua itungannya di sini biar hasilnya angka bulat
+    const total = (player.money || 0) + assetValue + ((player.gold || 0) * goldPrice) + agriValue + antiqueValue - (player.debt || 0);
+    return Math.floor(total); 
+};
+
 
   const checkBankruptcy = (playerId) => {
     const p = playersRef.current.find(x => x.id === playerId);
