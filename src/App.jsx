@@ -151,8 +151,6 @@ export default function App() {
   const [goldPrice, setGoldPrice] = useState(100); 
   const [marketPrices, setMarketPrices] = useState({ gandum: 15, telur: 25, padi: 40 }); 
   const [tick, setTick] = useState(0); 
-  const [showVipInfo, setShowVipInfo] = useState(false);
-
   
   const [activeModal, setActiveModal] = useState('WAIT_ROLL'); 
   const [modalData, setModalData] = useState(null); 
@@ -2844,13 +2842,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
            <button onClick={() => setShowPasarMenu(true)} className="px-2 md:px-3 py-1.5 bg-lime-600/20 text-lime-500 rounded-full active:bg-lime-600/40 border border-lime-600/50 flex items-center gap-1 transition-colors">
               <Store size={14} /><span className="text-[9px] md:text-[10px] font-bold hidden sm:inline">PASAR</span>
            </button>
-           
-           {/* INI TOMBOL VIP BARU 👇 */}
-           <button onClick={() => setShowVipInfo(true)} className="px-2 md:px-3 py-1.5 bg-purple-600/20 text-purple-400 rounded-full active:bg-purple-600/40 border border-purple-600/50 flex items-center gap-1 transition-colors">
-              <Ticket size={14} /><span className="text-[9px] md:text-[10px] font-bold hidden sm:inline">VIP INFO</span>
-           </button>
          </div>
-
          <div className="flex gap-1 md:gap-2">
            <button onClick={toggleFullScreen} className="p-1.5 bg-slate-800 rounded-full text-slate-300 active:bg-slate-700 transition-colors hidden sm:block">
               <Maximize size={16} />
@@ -2863,40 +2855,14 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
       </div>
 
       {/* CENTER: Papan + Menu Bawah (dempet persis di bawah papan) */}
-      <div className="flex-1 w-full flex flex-col items-center justify-start md:justify-center overflow-y-auto no-scrollbar p-1 md:p-4 gap-2 md:gap-4 relative">
-
-         {/* ======================================================= */}
-         {/* TEMPEL KODE BERITA BERJALANNYA DI SINI BOSKU!!! */}
-         {/* BERITA BERJALAN ALA BURSA EFEK */}
-         <div className="w-full max-w-[800px] shrink-0 bg-slate-900 border border-slate-800 rounded-xl flex items-center px-2 py-1.5 overflow-hidden shadow-inner">
-            <div className="bg-red-600 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded mr-2 shrink-0 z-10 shadow-md">INFO +62</div>
-            <div className="flex-1 overflow-hidden whitespace-nowrap mask-edges">
-               <div className="animate-ticker inline-block text-[9px] md:text-[10px] font-mono font-bold text-slate-300">
-                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
-                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
-                  <span className="text-orange-300 mx-4">🥚 TELUR: Rp{marketPrices.telur}K</span>
-                  <span className="text-yellow-500 mx-4">🌾 PADI: Rp{marketPrices.padi}K</span>
-                  {/* Di-copy 2x biar jalannya nyambung terus */}
-                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
-                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
-               </div>
-            </div>
-         </div>
-         {/* ======================================================= */}
-
-
+      <div className="flex-1 w-full flex flex-col items-center justify-start md:justify-center overflow-y-auto no-scrollbar p-2 md:p-4 gap-3 md:gap-4 relative">
+         
          {/* THE BOARD */}
-<div className="w-full max-w-[98vw] sm:max-w-[800px] max-h-[85vh] aspect-square flex flex-col mx-auto relative shrink-0">
+         <div className="w-full max-w-[800px] max-h-[72vh] md:max-h-[80vh] aspect-square flex flex-col mx-auto relative shrink-0">
            <div className="w-full h-full bg-[#cde6d0] border-[2px] md:border-[3px] border-slate-800 rounded-lg relative shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-[1px] md:p-[2px]">
              
-{/* GRID 15x15 */}
-<div className="w-full h-full grid gap-0" 
-     style={{ 
-       gridTemplateColumns: '1.8fr repeat(13, 1fr) 1.8fr', 
-       gridTemplateRows: '1.8fr repeat(13, 1fr) 1.8fr' 
-     }}>
-
-
+             {/* GRID 15x15 */}
+             <div className="w-full h-full grid gap-0" style={{ gridTemplateColumns: '2fr repeat(13, 1fr) 2fr', gridTemplateRows: '2fr repeat(13, 1fr) 2fr' }}>
              
              {/* Center Hub */}
              <div className="z-30 m-1 md:m-2" style={{ gridColumn: '2 / 15', gridRow: '2 / 15' }}>
@@ -2952,9 +2918,8 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                                 {tile.type === 'lottery' ? <Coins size={8} className="text-teal-700 opacity-80 md:w-6 md:h-6" /> : null}
                                 {tile.type === 'auction' ? <Gavel size={8} className="text-rose-700 opacity-80 md:w-6 md:h-6" /> : null}
 
-                                {tile.type === 'property' ? <span className={`text-[5px] sm:text-[6px] md:text-[8px] font-black text-center ${propData?.isMortgaged?'text-slate-400':'text-slate-900'} leading-[1.1] mt-[1px] block w-[90%] break-words`}>{tile.name.substring(0,4).toUpperCase()}</span> : null}
-{tile.type === 'tax' ? <span className="text-[5.5px] sm:text-[6px] md:text-[8px] font-black text-orange-700 leading-none mt-[1px]">TAX</span> : null}
-
+                                {tile.type === 'property' ? <span className={`text-[3px] sm:text-[4px] md:text-[6px] font-black text-center ${propData?.isMortgaged?'text-slate-400':'text-slate-900'} leading-[1.1] mt-[1px] block w-[90%] break-words`}>{tile.name.substring(0,4).toUpperCase()}</span> : null}
+                                {tile.type === 'tax' ? <span className="text-[3.5px] sm:text-[4px] md:text-[6px] font-black text-orange-700 leading-none mt-[1px]">TAX</span> : null}
                              </div>
                          </div>
 
@@ -3013,95 +2978,8 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
            </div>
          </div>
 
-      
-
-      {/* ======================================================= */}
-      {/* LIVE LEADERBOARD (BENAR-BENAR DI LUAR PAPAN) */}
-      {(() => {
-          const activePlayers = players.filter(p => !p.isBankrupt);
-          if (activePlayers.length === 0) return null;
-          // Urutkan dari yang paling tajir ke yang paling miskin
-          const sortedPlayers = [...activePlayers].sort((a, b) => calculateNetWorth(b) - calculateNetWorth(a));
-          
-          return (
-            <div className="flex-none w-full bg-slate-900 border-t border-slate-800 p-2 z-30">
-               <div className="w-full max-w-[98vw] sm:max-w-[800px] mx-auto flex flex-col gap-1">
-                   <div className="flex items-center gap-1 px-1">
-                      <Trophy size={12} className="text-yellow-400" />
-                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Live Ranking Sultan</span>
-                   </div>
-                   
-                   {/* List Rank */}
-                   <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
-                      {sortedPlayers.map((p, index) => {
-                         let rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : '🏅';
-                         return (
-                            <div key={p.id} className={`flex items-center gap-2 p-1.5 px-2.5 rounded-lg border bg-slate-800/80 shrink-0 min-w-[120px] transition-all
-                               ${index === 0 ? 'border-yellow-500/50 shadow-[0_0_10px_rgba(234,179,8,0.15)]' : 'border-slate-700'}`}>
-                               
-                               <span className="text-sm drop-shadow-md">{rankIcon}</span>
-                               
-                               <div className="flex flex-col flex-1">
-                                  <div className="flex items-center gap-1">
-                                     <div className={`w-2 h-2 rounded-full ${p.color}`} />
-                                     <span className={`text-[10px] font-bold truncate max-w-[65px] ${index === 0 ? 'text-yellow-400' : 'text-white'}`}>
-                                        {p.name}
-                                     </span>
-                                  </div>
-                                  <div className="flex items-center gap-1">
-                                     <TrendingDown size={8} className="text-blue-400"/>
-                                     <span className="text-[10px] font-mono text-blue-400 font-black">Rp{Math.floor(calculateNetWorth(p))}K</span>
-                                  </div>
-                               </div>
-                            </div>
-                         );
-                      })}
-                   </div>
-               </div>
-            </div>
-          );
-      })()}
-      {/* ======================================================= */}
-      
-         {/* ======================================================= */}
-         {/* MINI LOG RIWAYAT (3 TERATAS) */}
-         {logs.length > 0 && (
-           <div className="w-full max-w-[98vw] sm:max-w-[800px] shrink-0 mt-2 mb-1">
-              <div className="flex items-center justify-between px-2 mb-1.5">
-                 <div className="flex items-center gap-1">
-                    <History size={12} className="text-slate-400" />
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Log Terkini</span>
-                 </div>
-                 <button onClick={() => setShowLogsMenu(true)} className="text-[9px] font-bold text-blue-400 hover:text-blue-300 transition-colors">
-                    Lihat Semua ➡️
-                 </button>
-              </div>
-              
-              <div className="flex flex-col gap-1 bg-slate-900/80 border border-slate-800 p-1.5 rounded-xl shadow-inner">
-                 {/* UBAH ANGKA 5 JADI 3 DI SINI 👇 */}
-                 {logs.slice(0, 3).map((log, i) => (
-                    <div key={i} className={`text-[9px] font-mono p-1.5 rounded border truncate
-                       ${log.includes('🔴 API') || log.includes('System Fallback') ? 'bg-red-900/30 text-red-300 border-red-800/50' : 
-                         log.includes('📡 API') || log.includes('🎲 AI Master') || log.includes('🎲 Sistem') ? 'bg-indigo-900/20 text-indigo-300 border-indigo-800/50' : 
-                         log.includes('⚡ EFEK') ? 'bg-amber-900/20 text-amber-300 border-amber-800/50' : 
-                         log.includes('🤖 BOT EMERGENCY') || log.includes('🤖 BOT INVESTASI') || log.includes('🤖 BOT TRADING') ? 'bg-cyan-900/20 text-cyan-300 border-cyan-800/50' : 
-                         'bg-slate-800/60 text-slate-300 border-slate-700/50'}`}>
-                        {log}
-                    </div>
-                 ))}
-              </div>
-           </div>
-         )}
-         {/* ======================================================= */}
-
-      
-</div> {/* <-- INI ADALAH PENUTUP AREA TENGAH (PAPAN) */}
-
-      {/* BOTTOM MENU CARDS - Nempel Sempurna di Bawah Layar HP */}
-      <div className="flex-none w-full bg-slate-900/95 backdrop-blur-md border-t border-slate-800 p-2 pb-[max(env(safe-area-inset-bottom),16px)] z-40 shadow-[0_-10px_30px_rgba(0,0,0,0.8)]">
-
-
-         <div className="w-full max-w-[98vw] sm:max-w-[800px] mx-auto flex gap-2 overflow-x-auto no-scrollbar">
+         {/* BOTTOM MENU CARDS - Nempel & Dempet dengan Papan */}
+         <div className="w-full max-w-[800px] shrink-0 bg-slate-900/90 backdrop-blur-md shadow-[0_-4px_20px_rgba(0,0,0,0.5)] border border-slate-800 rounded-2xl p-2 overflow-x-auto no-scrollbar flex gap-2">
              {players.map((p, idx) => {
                 if (p.isBankrupt) return null; 
                 const isDanger = (p.money || 0) <= 200 && (p.money || 0) >= 0;
@@ -3117,17 +2995,34 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                        <span className="font-bold text-[10px] text-slate-200 leading-tight flex items-center gap-1 justify-between w-full">
                           {p.name.substring(0,8)} {(p.buffs || []).length > 0 ? <Ticket size={8} className="text-yellow-400"/> : ''}
                        </span>
-                       {/* Sekalian fix koma pakai Math.floor */}
-                       <span className={`font-mono font-black text-xs leading-tight ${isDanger ? 'text-red-400' : 'text-green-400'}`}>Rp{Math.floor(p.money || 0)}K</span>
+                       <span className={`font-mono font-black text-xs leading-tight ${isDanger ? 'text-red-400' : 'text-green-400'}`}>Rp{p.money || 0}K</span>
                     </div>
                   </div>
                 );
              })}
          </div>
+{/* ======================================================= */}
+         {/* TEMPEL KODE BERITA BERJALANNYA DI SINI BOSKU!!! */}
+         {/* BERITA BERJALAN ALA BURSA EFEK */}
+         <div className="w-full max-w-[800px] shrink-0 bg-slate-900 border border-slate-800 rounded-xl flex items-center px-2 py-1.5 overflow-hidden shadow-inner">
+            <div className="bg-red-600 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded mr-2 shrink-0 z-10 shadow-md">INFO +62</div>
+            <div className="flex-1 overflow-hidden whitespace-nowrap mask-edges">
+               <div className="animate-ticker inline-block text-[9px] md:text-[10px] font-mono font-bold text-slate-300">
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+                  <span className="text-orange-300 mx-4">🥚 TELUR: Rp{marketPrices.telur}K</span>
+                  <span className="text-yellow-500 mx-4">🌾 PADI: Rp{marketPrices.padi}K</span>
+                  {/* Di-copy 2x biar jalannya nyambung terus */}
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+               </div>
+            </div>
+         </div>
+         {/* ======================================================= */}
+
       </div>
 
       {/* OVERLAY MODALS */}
-
 
       {/* 0. Pinjaman Bank & Jual Antik */}
       {showBankLoan && currentPlayer && (
@@ -3683,48 +3578,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                    </div>
                 </div>
              )}
-          </div>
-        </div>
-      )}
-
-      {/* 6. Modal Buku Panduan Kartu VIP */}
-      {showVipInfo && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowVipInfo(false)}>
-          <div className="bg-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-purple-600/50 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
-            <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
-               <div className="flex items-center gap-2">
-                 <Ticket className="text-purple-400" size={24}/>
-                 <h2 className="text-lg font-black text-white uppercase tracking-wider">Katalog Kartu VIP</h2>
-               </div>
-               <button onClick={() => setShowVipInfo(false)} className="text-slate-400 hover:text-white"><X size={24}/></button>
-            </div>
-            
-            <div className="overflow-y-auto no-scrollbar space-y-3 pb-2">
-               <p className="text-xs text-slate-400 mb-2 italic">Dapatkan kartu-kartu sakti ini dengan berhenti di petak <b>PARKIR BEBAS</b> atau dari <b>Event Master AI</b>!</p>
-               
-               {[
-                 { id: 'FREE_RENT', icon: '🎫', name: 'Bebas Sewa', type: 'Otomatis', desc: 'Otomatis menahan uangmu saat menginjak properti musuh.' },
-                 { id: 'LOSS_EXEMPTION', icon: '🛡️', name: 'Asuransi Rugi', type: 'Otomatis', desc: 'Otomatis menahan denda saat kena Event AI buruk, salah jawab Kuis, atau Pajak.' },
-                 { id: 'FREE_JAIL', icon: '🗝️', name: 'Bebas Penjara', type: 'Tombol', desc: 'Gunakan tombol saat kamu berada di dalam penjara untuk bebas gratis tanpa lempar dadu.' },
-                 { id: 'VIP_AUCTION', icon: '🔨', name: 'Auto Win Lelang', type: 'Tombol', desc: 'Saat giliaranmu menawar di Balai Lelang, klik tombol VIP untuk langsung menang & gratis.' },
-                 { id: 'FREE_MAX_UPGRADE', icon: '🌟', name: 'Sultan Mendadak', type: 'Tombol', desc: 'Saat menginjak lahanmu sendiri, gunakan opsi VIP ini untuk upgrade instan ke Level Maksimal (Gratis).' },
-                 { id: 'FORCE_ACQUIRE', icon: '👑', name: 'Kudeta Lahan', type: 'Manual (Tap Lahan)', desc: 'Tap lahan musuh, pilih Ajukan Akuisisi, lalu gunakan kartu ini untuk merampasnya tanpa bayar.' },
-                 { id: 'FREE_REDEEM', icon: '📈', name: 'Tebus Gadai', type: 'Manual (Tap Lahan)', desc: 'Tap lahanmu yang sedang digadai, lalu gunakan tombol Tebus VIP untuk mencabut status gadai secara gratis.' },
-                 { id: 'DEBT_CLEAR', icon: '💸', name: 'Pemutihan Pinjol', type: 'Manual (Dari Profil)', desc: 'Tap Profil/Namamu di bawah, klik kartu ini sebelum lempar dadu untuk menghapus semua hutang Bank.' },
-                 { id: 'CUSTOM_TELEPORT', icon: '🪄', name: 'Teleport Bebas', type: 'Manual (Dari Profil)', desc: 'Tap Profil/Namamu di bawah, klik kartu ini, lalu tap petak manapun di papan untuk pindah instan.' }
-               ].map((card, i) => (
-                  <div key={i} className="bg-slate-900 p-3 rounded-xl border border-slate-700 flex flex-col gap-1">
-                     <div className="flex justify-between items-center">
-                        <p className="font-bold text-purple-300 text-sm">{card.icon} {card.name}</p>
-                        <span className={`text-[8px] px-2 py-0.5 rounded font-bold ${card.type === 'Otomatis' ? 'bg-green-900/40 text-green-400' : card.type === 'Tombol' ? 'bg-blue-900/40 text-blue-400' : 'bg-orange-900/40 text-orange-400'}`}>
-                           PENGGUNAAN: {card.type.toUpperCase()}
-                        </span>
-                     </div>
-                     <p className="text-[11px] text-slate-300 leading-relaxed">{card.desc}</p>
-                  </div>
-               ))}
-            </div>
-            <button onClick={() => setShowVipInfo(false)} className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl font-bold mt-3 active:scale-95 transition-transform">SAYA MENGERTI</button>
           </div>
         </div>
       )}
