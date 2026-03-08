@@ -125,6 +125,9 @@ export default function App() {
   const [showSettingsMenu, setShowSettingsMenu] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
 
+  // Anti-Spam Security State
+  const [uiLocked, setUiLocked] = useState(false);
+
   // AI Settings (Groq Only)
   const [groqApiKey, setGroqApiKey] = useState('');
   
@@ -174,7 +177,7 @@ export default function App() {
   const logsEndRef = useRef(null);
   const botTimeoutRef = useRef(null);
   const aiConfigRef = useRef({ key: '' });
-  const eventLockRef = useRef(false); // Fix mencegah AI nembak event double
+  const eventLockRef = useRef(false);
   const gameSettingsRef = useRef({ startMoney: 1500, eventMaxMoney: 1000, eventMaxGold: 5, antiqueMaxPrice: 1500, assetMaxQty: 10, maxComboCount: 5 });
 
   useEffect(() => { playersRef.current = players; }, [players]);
@@ -225,7 +228,6 @@ export default function App() {
     }
   };
 
-  // --- HELPER: Menggunakan 1 Kartu VIP Secara Aman ---
   const consumeCard = (buffsArray, cardId) => {
     const arr = [...(buffsArray || [])];
     const idx = arr.indexOf(cardId);
@@ -319,7 +321,6 @@ export default function App() {
     }));
   };
 
-  // --- HELPER: BAYAR/POTONG UANG DENGAN BOT EMERGENCY FUNDING ---
   const processForcedPayment = (player, amount, logMessage) => {
     const oldMoney = player.money || 0;
     let newMoney = oldMoney - amount;
@@ -393,7 +394,6 @@ export default function App() {
     return newMoney; 
   };
 
-  // --- START GAME ---
   const startGame = () => {
     const activeConfigs = playerConfigs.filter(p => p.active);
     if (activeConfigs.length < 2) {
@@ -442,7 +442,6 @@ export default function App() {
 
   const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
-  // --- API / AI Logic (Groq Only) ---
   const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
 
   const callAIText = async (userPrompt, systemPrompt) => {
@@ -526,7 +525,6 @@ export default function App() {
     }
   };
 
-  // --- SYSTEM-DRIVEN EVENT LOGIC (DYNAMIC COMBO MAKER) ---
   const generateSystemEffects = () => {
     const { eventMaxMoney, eventMaxGold, antiqueMaxPrice, assetMaxQty, maxComboCount } = gameSettingsRef.current;
     const RND = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -536,7 +534,6 @@ export default function App() {
     let promptDescParts = [];
     let needsAntiqueName = false;
 
-    // Peluang Kombo 40%, Single 60%
     const isCombo = Math.random() > 0.6;
     let numEffects = 1;
     if (isCombo && maxComboCount > 1) {
@@ -544,7 +541,6 @@ export default function App() {
     }
 
     let availableTypes = ['money', 'move', 'teleport', 'jail', 'antique', 'asset', 'gold', 'vip', 'parkir'];
-    // Kurangi rasio munculnya efek langka
     if (Math.random() > 0.05) availableTypes = availableTypes.filter(t => t !== 'vip');
     if (Math.random() > 0.1) availableTypes = availableTypes.filter(t => t !== 'parkir');
 
@@ -553,13 +549,10 @@ export default function App() {
 
     for (let t of availableTypes) {
         if (selectedTypes.length >= numEffects) break;
-
-        // Aturan Anti-Bentrok Kombo
         if (t === 'move' && (selectedTypes.includes('teleport') || selectedTypes.includes('jail') || selectedTypes.includes('parkir'))) continue;
         if (t === 'teleport' && (selectedTypes.includes('move') || selectedTypes.includes('jail') || selectedTypes.includes('parkir'))) continue;
         if (t === 'parkir' && (selectedTypes.includes('move') || selectedTypes.includes('jail') || selectedTypes.includes('teleport'))) continue;
         if (t === 'jail' && (selectedTypes.includes('move') || selectedTypes.includes('teleport') || selectedTypes.includes('parkir'))) continue;
-
         selectedTypes.push(t);
     }
 
@@ -695,7 +688,7 @@ STRICT OUTPUT JSON MURNI:
     const flavorName = await callAIText(`Berikan 1 nama barang lelang. Seed: ${seed}`, sysPrompt);
     
     const val = Math.floor(Math.random() * antiqueMaxPrice) + 50;
-    const startBid = Math.floor(val * (Math.random() * 0.5 + 0.1)); // 10% - 60% of real value
+    const startBid = Math.floor(val * (Math.random() * 0.5 + 0.1)); 
 
     return {
         name: flavorName ? flavorName : item.name,
@@ -729,7 +722,6 @@ STRICT OUTPUT JSON MURNI:
   useEffect(() => {
     if (pendingTrade && pendingTrade.owner.isBot) {
         const timer = setTimeout(() => {
-            // Bot setuju sekitar 60% peluang. (Lebih interaktif)
             const accept = Math.random() > 0.4;
             handleTradeResponse(accept);
         }, 2500);
@@ -812,17 +804,12 @@ STRICT OUTPUT JSON MURNI:
                  payload = BOARD_TILES.find(t => propertiesRef.current[t.id]?.ownerId && propertiesRef.current[t.id]?.ownerId !== currentPlayer.id && !propertiesRef.current[t.id]?.isMortgaged);
              } else if ((currentPlayer.buffs || []).includes('CUSTOM_TELEPORT') && Math.random() < 0.3) {
                  action = 'PREPARE_CUSTOM_TELEPORT';
-                 
-                 // --- LOGIKA BARU BOT TELEPORT (SMART BOT) ---
                  const jktProp = propertiesRef.current[55];
-                 // Cek apakah Jakarta kosong (belum dibeli) ATAU milik bot itu sendiri
                  if (!jktProp || jktProp.ownerId === currentPlayer.id) {
-                     payload = 55; // Aman bos! Gas ke Jakarta buat beli/upgrade.
+                     payload = 55; 
                  } else {
-                     payload = 0;  // Bahaya ada musuh! Mending teleport ke START (petak 0) ambil gaji Rp200K aja.
+                     payload = 0;  
                  }
-
-
              } else {
                  const mortgagedProps = BOARD_TILES.filter(t => propertiesRef.current[t.id]?.ownerId === currentPlayer.id && propertiesRef.current[t.id]?.isMortgaged);
                  let canRedeem = null;
@@ -837,7 +824,6 @@ STRICT OUTPUT JSON MURNI:
                      }
                  }
 
-
                  if (canRedeem && Math.random() < 0.8) { 
                      action = 'BOT_EXECUTE_TEBUS';
                      payload = canRedeem;
@@ -849,7 +835,6 @@ STRICT OUTPUT JSON MURNI:
           break;
         case 'BUY': action = 'BUY_YES'; break;
         case 'UPGRADE': 
-          // Bot uses Max Upgrade VIP Card if available
           if ((currentPlayer.buffs || []).includes('FREE_MAX_UPGRADE') && Math.random() > 0.2) {
               action = 'USE_FREE_MAX_UPGRADE';
           } else {
@@ -929,11 +914,9 @@ STRICT OUTPUT JSON MURNI:
                       (player.assets?.padi || 0) * marketPrices.padi;
     const antiqueValue = (player.antiques || []).reduce((sum, a) => sum + a.val, 0);
 
-    // Bungkus semua itungannya di sini biar hasilnya angka bulat
     const total = (player.money || 0) + assetValue + ((player.gold || 0) * goldPrice) + agriValue + antiqueValue - (player.debt || 0);
     return Math.floor(total); 
 };
-
 
   const checkBankruptcy = (playerId) => {
     const p = playersRef.current.find(x => x.id === playerId);
@@ -985,7 +968,6 @@ STRICT OUTPUT JSON MURNI:
         });
         addLog(`🤖 BOT TRADING: ${player.name} menjual ${sellAmtGold}g Emas ke bursa senilai Rp${sellValGold}K! (Saldo: Rp${oldBGold}K ➡️ Rp${newBGold}K)`);
         playSound('coin');
-        // FIX: Bot timeout wait roll logic
         if(player.isBot) setTimeout(() => handleAction('ROLL'), 1500);
         break;
 
@@ -1011,23 +993,13 @@ STRICT OUTPUT JSON MURNI:
           const newMoney = processForcedPayment(player, rentAmt, `💸 TRANSAKSI SEWA: ${player.name} membayar Rp${rentAmt}K kepada ${ownerName}.`);
           playSound('coin');
 
-          // Ambil data uang pemilik lahan saat ini dari memori (ref)
-        const ownerObj = playersRef.current.find(p => p.id === ownerId);
-const oOld = ownerObj ? (ownerObj.money || 0) : 0;
+          const ownerObj = playersRef.current.find(p => p.id === ownerId);
+          const oOld = ownerObj ? (ownerObj.money || 0) : 0;
+          const actualPaid = player.money > 0 ? Math.min(rentAmt, player.money) : 0;
+          const oNew = oOld + actualPaid;
 
-// LOGIKA LAMA (UANG GAIB):
-// const oNew = oOld + rentAmt; 
-
-// LOGIKA BARU (MASUK AKAL):
-const actualPaid = player.money > 0 ? Math.min(rentAmt, player.money) : 0;
-const oNew = oOld + actualPaid;
-
-addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPaid}K. (Saldo: Rp${oOld}K ➡️ Rp${oNew}K)`);
-
-
-        // Baru update uang pemiliknya
-        updatePlayerState(ownerId, { money: oNew });
-
+          addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPaid}K. (Saldo: Rp${oOld}K ➡️ Rp${oNew}K)`);
+          updatePlayerState(ownerId, { money: oNew });
           
           setTimeout(() => {
              if (newMoney < 0) {
@@ -1065,6 +1037,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         break;
 
       case 'ROLL_JAIL':
+        setUiLocked(true); // Anti-Spam
         setActiveModal('ROLLING');
         playSound('dice');
         let dJail = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
@@ -1092,9 +1065,11 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                setActiveModal('END_TURN');
            }
         }
+        setUiLocked(false);
         break;
 
       case 'ROLL':
+        setUiLocked(true); // Anti-Spam
         setActiveModal('ROLLING');
         playSound('dice');
         let tempDice = [Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1];
@@ -1104,9 +1079,11 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         addLog(`🎲 MELEMPAR DADU: ${player.name} melangkah maju sejauh ${totalRoll} petak.`);
         setActiveModal('MOVING');
         await animateMove(player.id, totalRoll);
+        setUiLocked(false);
         break;
 
       case 'BUY_YES':
+        setUiLocked(true);
         if ((player.money || 0) >= modalData.price) {
           const oldM = player.money;
           const newM = oldM - modalData.price;
@@ -1127,6 +1104,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
           setErrorMsg('Uang Tidak Cukup!'); playSound('fail');
           if(player.isBot) setActiveModal('END_TURN'); 
         }
+        setUiLocked(false);
         break;
 
       case 'BUY_NO':
@@ -1135,6 +1113,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         break;
 
       case 'UPGRADE_YES':
+        setUiLocked(true);
         if ((player.money || 0) >= modalData.dynamicCost) {
           const oldM = player.money;
           const newM = oldM - modalData.dynamicCost;
@@ -1147,6 +1126,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
           setErrorMsg('Dana Kurang Bos!'); playSound('fail');
           if(player.isBot) setActiveModal('END_TURN');
         }
+        setUiLocked(false);
         break;
       
       case 'USE_FREE_MAX_UPGRADE':
@@ -1179,7 +1159,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         addLog(`🎫 PEMUTIHAN! ${player.name} menggunakan Kartu VIP untuk melunasi semua hutang Pinjol secara instan!`);
         playSound('magic');
         setViewingPlayer(null);
-        // FIX: Supaya bot gak nyangkut nungguin hidayah
         if(player.isBot) setTimeout(() => handleAction('ROLL'), 1500);
         break;
       
@@ -1200,27 +1179,24 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         setTimeout(() => { evaluateTile(BOARD_TILES[payload], playersRef.current[turnIndex]); }, 500);
         break;
 
-            case 'EXECUTE_KUDETA':
+      case 'EXECUTE_KUDETA':
         updatePlayerState(player.id, p => ({ buffs: consumeCard(p.buffs, 'FORCE_ACQUIRE') }));
         setProperties(prev => ({ ...prev, [payload.id]: { ...propertiesRef.current[payload.id], ownerId: player.id } }));
         addLog(`👑 KUDETA KARTU VIP! ${player.name} merampas hak milik properti ${payload.name} secara paksa dan gratis!`);
         playSound('win');
-        
-        // FIX: Biar bot tetap ngocok dadu setelah pamer kekuatan jalur VIP
         if(player.isBot) setTimeout(() => handleAction('ROLL'), 1500);
         break;
-
 
       case 'EXECUTE_FREE_REDEEM':
         updatePlayerState(player.id, p => ({ buffs: consumeCard(p.buffs, 'FREE_REDEEM') }));
         setProperties(prev => ({...prev, [payload.id]: { ...propertiesRef.current[payload.id], isMortgaged: false }}));
         addLog(`📈 TEBUS GRATIS! ${player.name} telah menebus kembali properti ${payload.name} dari bank dengan Kartu VIP!`);
         playSound('magic');
-        // FIX: Supaya bot jalan setelah nebus aset
         if(player.isBot) setTimeout(() => handleAction('ROLL'), 1500);
         break;
 
       case 'LOTTERY_SPIN':
+        setUiLocked(true); // Anti-Spam
         playSound('dice');
         await sleep(1000);
         const winAmount = Math.random() > 0.5 ? Math.floor(Math.random() * 300) + 50 : 0;
@@ -1237,26 +1213,16 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             setModalData(prev => ({ ...prev, result: 0 }));
         }
         setActiveModal('LOTTERY_RESULT');
+        setUiLocked(false);
         break;
 
       case 'AUCTION_TURN_VIP_WIN': {
         const winnerId = payload;
         const winner = playersRef.current.find(p=>p.id===winnerId);
-        
-        updatePlayerState(winnerId, p => ({
-            buffs: consumeCard(p.buffs, 'VIP_AUCTION'),
-            antiques: [...(p.antiques || []), { name: modalData.item.name, val: modalData.item.val }]
-        }));
-        
+        updatePlayerState(winnerId, p => ({ buffs: consumeCard(p.buffs, 'VIP_AUCTION'), antiques: [...(p.antiques || []), { name: modalData.item.name, val: modalData.item.val }] }));
         addLog(`🎟️ KARTU SAKTI LELANG! ${winner.name} menggunakan VIP AUTO WIN dan memenangkan "${modalData.item.name}" secara INSTAN & GRATIS!`);
         playSound('win');
-        
-        setModalData(prev => ({ 
-            ...prev, 
-            resolved: true, 
-            winner,
-            currentBid: 0 
-        }));
+        setModalData(prev => ({ ...prev, resolved: true, winner, currentBid: 0 }));
         break;
       }
 
@@ -1266,14 +1232,10 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         const nextB = modalData.highestBidderId === null ? modalData.item.startBid : modalData.currentBid + 10;
         playSound('coin');
         addLog(`🔨 TANTANGAN LELANG: ${bidderName} menaikkan tawaran ke Rp${nextB}K!`);
-        setModalData(prev => ({
-            ...prev,
-            currentBid: nextB,
-            highestBidderId: bidderId,
-            turnIdx: (prev.turnIdx + 1) % prev.activeBidders.length
-        }));
+        setModalData(prev => ({ ...prev, currentBid: nextB, highestBidderId: bidderId, turnIdx: (prev.turnIdx + 1) % prev.activeBidders.length }));
         break;
       }
+
       case 'AUCTION_TURN_FOLD': {
         const foldId = payload;
         const foldName = playersRef.current.find(p=>p.id===foldId)?.name || 'Anonim';
@@ -1286,6 +1248,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         });
         break;
       }
+
       case 'AUCTION_END': {
         if (modalData.highestBidderId === null || modalData.activeBidders.length === 0) {
             addLog(`🔨 LELANG SELESAI: Penawaran Barang Antik "${modalData.item.name}" dibatalkan karena sepi peminat.`);
@@ -1297,10 +1260,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             if(winner) {
                 const oldM = winner.money;
                 const newM = oldM - modalData.currentBid;
-                updatePlayerState(winnerId, p => ({
-                   money: newM,
-                   antiques: [...(p.antiques || []), { name: modalData.item.name, val: modalData.item.val }]
-                }));
+                updatePlayerState(winnerId, p => ({ money: newM, antiques: [...(p.antiques || []), { name: modalData.item.name, val: modalData.item.val }] }));
                 addLog(`🔨 KETUK PALU SAH! ${winner.name} menangin Lelang "${modalData.item.name}" seharga Rp${modalData.currentBid}K. (Saldo: Rp${oldM}K ➡️ Rp${newM}K)`);
                 playSound('win');
                 setModalData(prev => ({ ...prev, resolved: true, winner }));
@@ -1310,7 +1270,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
       }
 
       case 'ACKNOWLEDGE':
-        // Handle Tax
         if (activeModal === 'TAX' && modalData && modalData.price) {
             const newMoney = processForcedPayment(player, modalData.price, `📉 WAKTU PAJAK! ${player.name} keciduk petugas bayar Pajak Rp${modalData.price}K.`);
             playSound('fail');
@@ -1321,7 +1280,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             return;
         }
 
-        // Handle Event Master AI Array of Effects (KOMBO EFEK)
         if (activeModal === 'EVENT_RESULT' && modalData?.eventData?.effects) {
             let nextActionQueue = null; 
             let totalMoneyGain = 0;
@@ -1349,7 +1307,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                     logDetails.push(`🌾 +${ev.value || 1} ${aType}`);
                     playSound('coin');
                 } else if (ev.type === 'gold') {
-                    // Update dengan sistem HUTANG EMAS (Bisa minus/utang)
                     const oldGold = tmpGold;
                     tmpGold = parseFloat((tmpGold + ev.value).toFixed(1));
                     const diff = parseFloat((tmpGold - oldGold).toFixed(1));
@@ -1486,7 +1443,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             return;
         }
 
-        // Logic Kuis Result
         if (activeModal === 'QUIZ_RESULT') {
             if (modalData.isCorrect) {
                 const oldM = player.money;
@@ -1786,7 +1742,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
     }
   };
 
-  // --- FITUR GADAI & TEBUS (Advanced) ---
   const handleGadai = (type) => {
     const player = playersRef.current[turnIndex];
     if (!player || !viewingProperty) return;
@@ -1833,7 +1788,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
     }
   };
 
-  // --- FITUR BANK LOAN & JUAL BARANG ANTIK ---
   const handleBorrowBank = () => {
      const player = playersRef.current[turnIndex];
      if (!player) return;
@@ -1873,10 +1827,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
      updatePlayerState(currentPlayer.id, p => {
          const newAntiques = [...(p.antiques || [])];
          newAntiques.splice(index, 1);
-         return { 
-            money: newM,
-            antiques: newAntiques
-         };
+         return { money: newM, antiques: newAntiques };
      });
      addLog(`🏛️ MUSEUM BANK: Laku keras! ${currentPlayer.name} ngelepas barang lelang "${antique.name}" seharga Rp${antique.val}K. (Saldo: Rp${oldM}K ➡️ Rp${newM}K)`);
      playSound('coin');
@@ -1893,7 +1844,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
      playSound('coin');
   };
 
-  // --- FITUR TRADE / AKUISISI ---
   const handleTradeRequest = () => {
      const player = playersRef.current[turnIndex];
      if (!player || !viewingProperty) return;
@@ -1903,14 +1853,13 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
      const baseValue = targetProp.price + ((propData.level || 0) * (targetProp.hPrice || 0));
      let cost = baseValue * 2; 
 
-     // JIKA DIGADAI, Harga Akuisisi didiskon sebesar Biaya Tebus yang harus dibayar pembeli nanti
      if (propData.isMortgaged) {
          let redeemCost = (targetProp.price / 2) + 20;
          if (propData.isMortgaged !== 'land') {
              redeemCost += ((propData.level || 0) * (targetProp.hPrice || 0) / 2);
          }
          cost -= redeemCost;
-         cost = Math.max(cost, baseValue); // Minimal harga sama dengan base value
+         cost = Math.max(cost, baseValue); 
      }
 
      const owner = playersRef.current.find(p => p.id === propData.ownerId);
@@ -1945,7 +1894,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
          }));
          updatePlayerState(currentOwner.id, p => ({ money: newOwnerM }));
          
-         // PERTAHANKAN STATUS GADAI JIKA ADA
          setProperties(prev => ({ 
              ...prev, 
              [prop.id]: { 
@@ -1972,7 +1920,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
      setPendingTrade(null);
   };
 
-  // --- FITUR EMAS & PASAR PERTANIAN ---
   const handleBuyGold = () => {
      const player = playersRef.current[turnIndex];
      if (!player) return;
@@ -1993,7 +1940,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
      const player = playersRef.current[turnIndex];
      if (!player || (player.gold || 0) <= 0) return;
      
-     // Jika sellAll true, jual semua. Jika tidak, jual 1g (kalau < 1g jual sisa)
      const sellAmt = sellAll ? player.gold : ((player.gold || 0) >= 1 ? 1 : player.gold);
      const sellValue = Math.round(sellAmt * goldPrice);
 
@@ -2126,7 +2072,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
   if (gameState === 'menu') {
     return (
       <div className="min-h-[100dvh] bg-slate-900 flex flex-col font-sans overflow-hidden">
-        {/* Tombol Info Game & Fullscreen */}
         <div className="absolute top-4 right-4 z-20 flex gap-2">
             <button onClick={toggleFullScreen} className="bg-slate-700 p-2 rounded-full text-white hover:bg-slate-600 shadow-lg transition-transform active:scale-95">
                <Maximize size={24} />
@@ -2146,13 +2091,11 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
           <div className="w-full max-w-sm bg-slate-800 p-4 rounded-[24px] shadow-2xl border border-slate-700">
             {menuError && <div className="text-red-400 font-bold text-center bg-red-900/30 p-2 rounded-xl mb-4 text-xs">{menuError}</div>}
             
-            {/* AI CONFIGURATION */}
             <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 mb-4">
                <p className="text-slate-400 font-bold text-[10px] uppercase mb-2">Asisten AI Master (Groq Only):</p>
                <input type="password" placeholder="Masukkan API Key Groq" value={groqApiKey} onChange={e => setGroqApiKey(e.target.value)} className="w-full bg-slate-800 border border-slate-600 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500" />
             </div>
 
-            {/* GAME SETTINGS (Expandable) */}
             <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 mb-4">
                <button onClick={() => setShowSettingsMenu(!showSettingsMenu)} className="w-full flex justify-between items-center text-slate-300 hover:text-white transition-colors">
                   <span className="font-bold text-[10px] uppercase flex items-center gap-1"><Settings size={12}/> Pengaturan Permainan</span>
@@ -2243,7 +2186,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
           </button>
         </div>
 
-        {/* MODAL TUTORIAL / INFO PANDUAN GAME */}
+                {/* MODAL TUTORIAL / INFO PANDUAN GAME */}
         {showTutorial && (
           <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowTutorial(false)}>
             <div className="bg-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-blue-500/50 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
@@ -2256,47 +2199,88 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                </div>
                
                <div className="overflow-y-auto no-scrollbar space-y-4 text-sm text-slate-300 pb-4">
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Building size={14} className="text-green-400"/> Tujuan Permainan</p>
-                     <p className="text-[11px] leading-relaxed">Jadilah warga paling tajir! Beli tanah, bangun properti hingga level Hotel (Maks Lv 5). Buat tetanggamu bangkrut saat menginjak lahanmu. Yang bertahan terakhir adalah pemenangnya.</p>
-                  </div>
                   
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Sparkles size={14} className="text-purple-400"/> Master AI (Dana Umum & Kesempatan)</p>
-                     <p className="text-[11px] leading-relaxed">Bukan kartu statis biasa! Setiap mendarat di sini, sistem akan meracik kejadian (denda, untung, nyasar, masuk penjara) dan disajikan dengan <span className="text-purple-300 font-bold">cerita lucu unik dari AI</span>. Bisa dapet kombo efek sekaligus!</p>
+                  {/* SECTION 1: DASAR BERMAIN */}
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 bg-blue-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white">BASIC</div>
+                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Building size={14} className="text-blue-400"/> Tujuan & Lahan Dasar</p>
+                     <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
+                        <li>Jadilah yang paling kaya! Buat lawan bangkrut dengan uang sewa.</li>
+                        <li><b>Gaji Start:</b> Lewat petak START dapat <span className="text-green-400 font-bold">Rp200K</span> (Akan otomatis dipotong jika punya hutang Pinjol).</li>
+                        <li><b>Monopoli Lahan:</b> Beli lahan sewarna. Jika kamu kuasai 1 grup warna, <span className="text-red-400 font-bold">Sewa naik 2X LIPAT!</span></li>
+                        <li><b>Upgrade:</b> Lahan bisa diupgrade sampai Level 5 (Hotel). Makin tinggi, harga tukang makin mahal, tapi sewa makin mencekik.</li>
+                     </ul>
                   </div>
 
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Tractor size={14} className="text-lime-400"/> Lahan Pertanian & Tambang Emas</p>
-                     <p className="text-[11px] leading-relaxed">Ini adalah aset <b>Passive Income</b>. Tani akan panen aset (Gandum/Telur/Padi) dan Tambang panen Emas secara otomatis setiap beberapa waktu. <span className="text-lime-300 font-bold">Upgrade lahanmu untuk mempercepat waktu panen!</span> Jual hasil panenmu di menu <b>Pasar</b>.</p>
+                  {/* SECTION 2: EKONOMI PASIF */}
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 bg-lime-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white">ECONOMY</div>
+                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Tractor size={14} className="text-lime-400"/> Tani, Tambang & Fast-Travel</p>
+                     <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
+                        <li><b>Lahan Tani & Tambang:</b> Menghasilkan aset (Gandum/Telur/Padi/Emas) secara otomatis tiap waktu tertentu. <b>Upgrade (Maks Lv 3)</b> untuk mempercepat waktu panen!</li>
+                        <li><b>Pasar Tani:</b> Jual hasil panenmu di menu <b>PASAR</b> (Atas layar). Harga fluktuatif tiap giliran.</li>
+                        <li><b>Stasiun Kereta:</b> Punya >1 stasiun? Kamu bisa bayar Rp50K untuk <b>Teleportasi (Fast-Travel)</b> antar stasiunmu!</li>
+                     </ul>
                   </div>
 
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Coins size={14} className="text-yellow-400"/> Bursa Emas</p>
-                     <p className="text-[11px] leading-relaxed">Harga emas per gram akan naik-turun setiap giliran pemain berakhir! Beli saat murah, jual saat mahal di menu <b>Emas</b>. Hati-hati, event AI juga bisa mencuri emasmu, bikin emasmu jadi hutang (minus)!</p>
+                  {/* SECTION 3: BANK & LELANG */}
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 bg-yellow-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-slate-900">FINANCE</div>
+                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Landmark size={14} className="text-yellow-400"/> Bank Pinjol, Gadai & Lelang</p>
+                     <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
+                        <li><b>Gadai:</b> Kepepet? Tap lahanmu, pilih Gadai Tanah/Full. Awas, lahan gadai tidak menghasilkan uang sewa!</li>
+                        <li><b>Bank Pinjol:</b> Minjam Rp500K langsung cair, tapi hutang tercatat Rp600K. Max hutang Rp1.000K.</li>
+                        <li><b>Bursa Emas:</b> Beli emas buat investasi jangka panjang. Harga naik turun!</li>
+                        <li><b>Balai Lelang:</b> Mendarat di sini memicu lelang barang antik aneh buatan AI. Harga barang antik yang sukses dibeli akan <b>naik Rp1K tiap 10 detik!</b> Jual ke Bank pas lagi butuh duit.</li>
+                     </ul>
                   </div>
 
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Landmark size={14} className="text-blue-400"/> Bank Pinjol & Gadai</p>
-                     <p className="text-[11px] leading-relaxed">Kalau mau bangkrut, kamu bisa <span className="text-orange-400 font-bold">Gadai</span> lahan/aset di papan (Tap petak milikmu). Atau ngutang langsung ke <b>Bank Pinjol</b> (Dapat 500K, Hutang 600K). Hutang bank akan langsung memotong gajimu saat melewati garis START!</p>
+                  {/* SECTION 4: MAFIA & AI */}
+                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
+                     <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white">ADVANCED</div>
+                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Crosshair size={14} className="text-red-400"/> Sistem Mafia & Master AI</p>
+                     <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
+                        <li><b>Akuisisi Paksa (Kudeta):</b> Incar tanah musuh? Tap tanah mereka dan ajukan Akuisisi! Syaratnya: Kamu harus bayar <span className="text-red-400 font-bold">2X Lipat</span> dari total harga lahan+bangunan mereka.</li>
+                        <li><b>Event Master AI:</b> Mendarat di Dana Umum/Kesempatan? AI akan membuat cerita takdirmu (Denda/Hadiah/Teleport/Masuk Penjara). Nasibmu murni di tangan AI!</li>
+                        <li><b>Kuis AI:</b> Jawab pertanyaan receh. Benar +200K, Salah -100K.</li>
+                     </ul>
                   </div>
 
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Gavel size={14} className="text-rose-400"/> Balai Lelang Barang Antik</p>
-                     <p className="text-[11px] leading-relaxed">Pemain yang masuk sini memicu lelang barang nyeleneh dari AI. Lawan bot buat nawar! Barang antik yang sukses kamu beli, <b>nilainya akan terus naik seiring waktu</b>. Jual ke Bank kapan saja pas lagi butuh duit.</p>
+                  {/* SECTION 5: TIER S - KARTU VIP */}
+                  <div className="bg-slate-900 p-3 rounded-xl border border-purple-500/50 relative overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.15)]">
+                     <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-600 to-pink-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white animate-pulse">TIER S - SAKTI</div>
+                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Ticket size={14} className="text-purple-400"/> Kartu VIP Khusus (Parkir Bebas)</p>
+                     <p className="text-[10px] mb-3 text-slate-400">Didapatkan murni dari hoki saat mendarat di petak PARKIR. Kartu tersimpan di <b>Profil Pemain (Tap namamu di bawah)</b>.</p>
+                     
+                     <div className="space-y-2">
+                        <div className="bg-slate-800 p-2 rounded border border-slate-700">
+                           <p className="text-[10px] font-bold text-emerald-400 mb-1">⚡ AKTIF OTOMATIS (Sistem yang pakai):</p>
+                           <ul className="text-[9.5px] leading-tight space-y-1 list-disc list-inside text-slate-300">
+                              <li><b>Bebas Sewa:</b> Otomatis dipakai saat injak lahan musuh (Sewa jadi Rp0).</li>
+                              <li><b>Asuransi Rugi:</b> Otomatis menahan uang hilang dari Denda AI, Pajak, atau Salah Kuis.</li>
+                              <li><b>Kebal Pajak:</b> Otomatis menahan denda saat injak petak Pajak Jalan/Mewah.</li>
+                           </ul>
+                        </div>
+                        
+                        <div className="bg-slate-800 p-2 rounded border border-slate-700">
+                           <p className="text-[10px] font-bold text-cyan-400 mb-1">👆 AKTIF MANUAL (Tombol / Klik):</p>
+                           <ul className="text-[9.5px] leading-tight space-y-1 list-disc list-inside text-slate-300">
+                              <li><b>Teleport Bebas:</b> Tap kartu di Profil sebelum kocok dadu. Pindah ke petak mana saja!</li>
+                              <li><b>Pemutihan Pinjol:</b> Tap kartu di Profil. Hutang bank lunas Rp0 seketika!</li>
+                              <li><b>Bebas Penjara:</b> Muncul tombol khusus saat kamu masuk penjara.</li>
+                              <li><b>Kudeta Lahan:</b> Tap lahan musuh -> Muncul tombol "Kudeta Lahan". Ambil lahan mereka GRATIS!</li>
+                              <li><b>Sultan Mendadak:</b> Tap propertimu yg mau diupgrade -> Muncul tombol "Upgrade Max". Langsung Mentok Level 5 GRATIS!</li>
+                              <li><b>Tebus Gadai:</b> Tap lahanmu yg digadai -> Muncul tombol "Tebus Gratis".</li>
+                              <li><b>Auto Win Lelang:</b> Saat giliranmu nawar lelang, tekan tombol VIP buat menang instan GRATIS!</li>
+                           </ul>
+                        </div>
+                     </div>
                   </div>
 
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Crosshair size={14} className="text-red-400"/> Fitur Akuisisi Lahan (Mafia)</p>
-                     <p className="text-[11px] leading-relaxed">Mau merebut tanah musuh? Tap tanah mereka lalu tekan <b>Ajukan Akuisisi</b>. Kamu harus bayar 2X Lipat dari total harga aslinya. (Bot kadang nolak, kadang nerima). Atau pakai Kartu VIP Kudeta kalau punya!</p>
-                  </div>
-
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700">
-                     <p className="font-bold text-white mb-1 flex items-center gap-1"><Ticket size={14} className="text-cyan-400"/> Kartu VIP & Bebas Parkir</p>
-                     <p className="text-[11px] leading-relaxed">Berhenti di Parkir Bebas dijamin dapet 1 Kartu VIP acak (Bebas Sewa, Kudeta Lahan, Teleport, Asuransi Rugi, Upgrade Max, dll). Kartu ini akan tersimpan di dalam <b>Profil Pemain</b> (Tap nama pemain di bawah layar untuk melihat/menggunakan).</p>
-                  </div>
                </div>
-               <button onClick={() => setShowTutorial(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold mt-2 active:scale-95 transition-transform">SAYA PAHAM BOS!</button>
+               <button onClick={() => setShowTutorial(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold mt-2 active:scale-95 transition-transform shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2">
+                  <CheckCircle size={18}/> SAYA SIAP JADI SULTAN!
+               </button>
             </div>
           </div>
         )}
@@ -2316,7 +2300,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
   const renderCenterHub = () => {
     if (!activeModal || !currentPlayer) return null;
     const botIsThinking = currentPlayer.isBot;
-    const smBtn = "w-full py-2 px-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform text-white";
+    const smBtn = "w-full py-2 px-4 rounded-xl font-bold text-sm shadow-md active:scale-95 transition-transform text-white disabled:opacity-50 disabled:grayscale";
 
     return (
       <div className={`w-full h-full flex flex-col items-center justify-center p-2 text-center transition-all ${activeModal==='WAIT_ROLL' || activeModal==='END_TURN' ? 'bg-slate-900/95' : 'bg-slate-900'} rounded-xl border border-slate-700 shadow-2xl relative overflow-hidden`}>
@@ -2358,10 +2342,10 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   {!botIsThinking ? (
                     <div className="flex flex-col gap-2 w-full">
                       {(currentPlayer.buffs || []).includes('FREE_JAIL') && (
-                         <button onClick={() => handleAction('USE_JAIL_CARD')} className={`${smBtn} bg-purple-600 hover:bg-purple-500 text-xs`}>PAKAI KARTU BEBAS</button>
+                         <button onClick={() => !uiLocked && handleAction('USE_JAIL_CARD')} disabled={uiLocked} className={`${smBtn} bg-purple-600 hover:bg-purple-500 text-xs`}>PAKAI KARTU BEBAS</button>
                       )}
-                      <button onClick={() => handleAction('PAY_JAIL')} className={`${smBtn} bg-red-600 hover:bg-red-500 text-xs`}>SOGOK Rp50K</button>
-                      <button onClick={() => handleAction('ROLL_JAIL')} className={`${smBtn} bg-blue-600 hover:bg-blue-500 text-xs`}>COBA DADU KEMBAR ({(currentPlayer.jailTurns || 0) + 1}/3)</button>
+                      <button onClick={() => !uiLocked && handleAction('PAY_JAIL')} disabled={uiLocked} className={`${smBtn} bg-red-600 hover:bg-red-500 text-xs`}>SOGOK Rp50K</button>
+                      <button onClick={() => !uiLocked && handleAction('ROLL_JAIL')} disabled={uiLocked} className={`${smBtn} bg-blue-600 hover:bg-blue-500 text-xs`}>COBA DADU KEMBAR ({(currentPlayer.jailTurns || 0) + 1}/3)</button>
                     </div>
                   ) : (<p className="text-slate-400 text-xs font-bold animate-pulse">Bot lagi nelpon pengacara ☎️...</p>)}
                 </>
@@ -2372,7 +2356,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   </div>
                   <h2 className="text-sm md:text-lg font-black text-white mb-4">Giliran <span className={currentPlayer.color.replace('bg-', 'text-')}>{currentPlayer.name}</span></h2>
                   {!botIsThinking ? (
-                    <button onClick={() => handleAction('ROLL')} className={`${smBtn} bg-blue-600 hover:bg-blue-500`}>KOCOK DADU</button>
+                    <button onClick={() => !uiLocked && handleAction('ROLL')} disabled={uiLocked} className={`${smBtn} bg-blue-600 hover:bg-blue-500`}>KOCOK DADU</button>
                   ) : (<p className="text-slate-400 text-xs font-bold animate-pulse">Bot lagi nyari wangsit ☕...</p>)}
                 </>
               )}
@@ -2401,8 +2385,8 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <p className="text-yellow-400 font-mono font-bold text-xs md:text-sm my-3">Harga: Rp {modalData.price}K</p>
               {!botIsThinking ? (
                 <div className="flex w-full gap-2">
-                  <button onClick={() => handleAction('BUY_YES')} className={`${smBtn} bg-green-600 hover:bg-green-500`}>BELI</button>
-                  <button onClick={() => handleAction('BUY_NO')} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600`}>SKIP</button>
+                  <button onClick={() => !uiLocked && handleAction('BUY_YES')} disabled={uiLocked} className={`${smBtn} bg-green-600 hover:bg-green-500`}>BELI</button>
+                  <button onClick={() => !uiLocked && handleAction('BUY_NO')} disabled={uiLocked} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600`}>SKIP</button>
                 </div>
               ) : (<p className="text-slate-400 text-xs font-bold animate-pulse">Bot cek mutasi rekening 💳...</p>)}
             </>
@@ -2433,13 +2417,13 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               {!botIsThinking ? (
                 <div className="flex flex-col w-full gap-2">
                   {(currentPlayer.buffs || []).includes('FREE_MAX_UPGRADE') ? (
-                      <button onClick={() => handleAction('USE_FREE_MAX_UPGRADE')} className={`${smBtn} bg-purple-600 hover:bg-purple-500 flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(168,85,247,0.5)]`}>
+                      <button onClick={() => !uiLocked && handleAction('USE_FREE_MAX_UPGRADE')} disabled={uiLocked} className={`${smBtn} bg-purple-600 hover:bg-purple-500 flex justify-center items-center gap-1 shadow-[0_0_15px_rgba(168,85,247,0.5)]`}>
                          <Sparkles size={16}/> UPGRADE MAX GRATIS (VIP)
                       </button>
                   ) : null}
                   <div className="flex w-full gap-2">
-                     <button onClick={() => handleAction('UPGRADE_YES')} className={`${smBtn} bg-yellow-600 text-slate-900 hover:bg-yellow-500`}>UPGRADE</button>
-                     <button onClick={() => handleAction('UPGRADE_NO')} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600`}>SKIP</button>
+                     <button onClick={() => !uiLocked && handleAction('UPGRADE_YES')} disabled={uiLocked} className={`${smBtn} bg-yellow-600 text-slate-900 hover:bg-yellow-500`}>UPGRADE</button>
+                     <button onClick={() => !uiLocked && handleAction('UPGRADE_NO')} disabled={uiLocked} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600`}>SKIP</button>
                   </div>
                 </div>
               ) : (<p className="text-slate-400 text-xs font-bold animate-pulse">Bot manggil mandor 🧱...</p>)}
@@ -2454,7 +2438,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                  Ikut panen bareng, pemilik dapet: <br/><span className="text-lime-400 font-bold uppercase">{modalData.rewardText}</span>
                </p>
                {!botIsThinking ? (
-                 <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>SIAAP</button>
+                 <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>SIAAP</button>
                ) : (<p className="text-slate-400 text-xs animate-pulse">Bot bantuin panen 🌾...</p>)}
              </>
           )}
@@ -2467,7 +2451,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                  Ikut nggali bareng, pemilik dapet: <br/><span className="text-yellow-500 font-bold uppercase">{modalData.rewardText}</span>
                </p>
                {!botIsThinking ? (
-                 <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>SIAAP</button>
+                 <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>SIAAP</button>
                ) : (<p className="text-slate-400 text-xs animate-pulse">Bot bantuin gali ⛏️...</p>)}
              </>
           )}
@@ -2482,7 +2466,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                <h2 className="text-sm md:text-base font-black text-teal-400 mb-2">LOTRE WARGA</h2>
                <p className="text-[10px] text-slate-300 mb-4">Putar gratis, moga-moga jackpot bosku!</p>
                {!botIsThinking ? (
-                 <button onClick={() => handleAction('LOTTERY_SPIN')} className={`${smBtn} bg-teal-600 hover:bg-teal-500`}>PUTAR (GRATIS)</button>
+                 <button onClick={() => !uiLocked && handleAction('LOTTERY_SPIN')} disabled={uiLocked} className={`${smBtn} bg-teal-600 hover:bg-teal-500`}>PUTAR (GRATIS)</button>
                ) : (<p className="text-slate-400 text-xs animate-pulse">Bot ngarep jackpot 🎰...</p>)}
              </>
           )}
@@ -2503,7 +2487,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                    </>
                 )}
                 {!botIsThinking ? (
-                   <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700`}>LANJUTKAN</button>
+                   <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700`}>LANJUTKAN</button>
                 ) : (<p className="text-slate-400 text-xs animate-pulse">Bot bersyukur 🙏...</p>)}
              </>
           )}
@@ -2515,7 +2499,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
              </div>
           )}
 
-          {/* LELANG INTERAKTIF UI */}
           {activeModal === 'AUCTION_BIDDING' && modalData && (
              <>
                <Gavel size={36} className="text-rose-500 mb-1" />
@@ -2551,18 +2534,17 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                                <div className="flex flex-col w-full gap-2">
                                   <p className="text-[10px] text-slate-300 mb-1 bg-slate-800 px-3 py-1 rounded-full border border-slate-700 mx-auto w-max">Giliran <span className="font-bold text-white">{currentAuctionPlayer.name}</span>:</p>
                                   
-                                  {/* TOMBOL VIP AUTO WIN */}
                                   {(currentAuctionPlayer.buffs || []).includes('VIP_AUCTION') && (
-                                     <button onClick={() => handleAction('AUCTION_TURN_VIP_WIN', currentAuctionPlayer.id)} className={`${smBtn} bg-purple-600 hover:bg-purple-500 flex justify-center items-center gap-1 mb-1 transition-transform active:scale-95`}>
+                                     <button onClick={() => !uiLocked && handleAction('AUCTION_TURN_VIP_WIN', currentAuctionPlayer.id)} disabled={uiLocked} className={`${smBtn} bg-purple-600 hover:bg-purple-500 flex justify-center items-center gap-1 mb-1 transition-transform active:scale-95`}>
                                         <Sparkles size={14}/> GAS VIP AUTO WIN (GRATIS)
                                      </button>
                                   )}
 
-                                  <button onClick={() => handleAction('AUCTION_TURN_BID', currentAuctionPlayer.id)} disabled={currentAuctionPlayer.money < nextB} className={`${smBtn} bg-rose-600 hover:bg-rose-500 flex justify-between items-center px-4 disabled:opacity-50 disabled:grayscale transition-transform active:scale-95`}>
+                                  <button onClick={() => !uiLocked && handleAction('AUCTION_TURN_BID', currentAuctionPlayer.id)} disabled={uiLocked || currentAuctionPlayer.money < nextB} className={`${smBtn} bg-rose-600 hover:bg-rose-500 flex justify-between items-center px-4 disabled:opacity-50 disabled:grayscale transition-transform active:scale-95`}>
                                      <span className="text-xs font-bold">HAJAR BID</span>
                                      <span className="text-xs font-mono font-black">Rp{nextB}K</span>
                                   </button>
-                                  <button onClick={() => handleAction('AUCTION_TURN_FOLD', currentAuctionPlayer.id)} className={`${smBtn} bg-slate-700 hover:bg-slate-600 text-slate-300 mt-1 text-xs`}>MUNDUR (PASS)</button>
+                                  <button onClick={() => !uiLocked && handleAction('AUCTION_TURN_FOLD', currentAuctionPlayer.id)} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600 text-slate-300 mt-1 text-xs`}>MUNDUR (PASS)</button>
                                </div>
                            );
                        }
@@ -2587,9 +2569,8 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                          <p className="text-[10px] text-slate-300 mb-4">Gak ada yang doyan sama barang ini.</p>
                        </>
                     )}
-                    {/* Tutup Modal saat selesai */}
                     {!currentPlayer.isBot ? (
-                       <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>LANJUTKAN</button>
+                       <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>LANJUTKAN</button>
                     ) : (<p className="text-slate-400 text-xs animate-pulse">Bot beres-beres 🧹...</p>)}
                  </>
                )}
@@ -2604,11 +2585,11 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               {!botIsThinking ? (
                 <div className="flex flex-col w-full gap-2 overflow-y-auto max-h-32 no-scrollbar">
                   {modalData.availableStations.map(st => (
-                     <button key={st.id} onClick={() => handleAction('TELEPORT_STATION', st.id)} className={`${smBtn} bg-blue-600 hover:bg-blue-500 text-[10px] md:text-xs`}>
+                     <button key={st.id} onClick={() => !uiLocked && handleAction('TELEPORT_STATION', st.id)} disabled={uiLocked} className={`${smBtn} bg-blue-600 hover:bg-blue-500 text-[10px] md:text-xs`}>
                        KE {st.name.toUpperCase()} (Rp50K)
                      </button>
                   ))}
-                  <button onClick={() => handleAction('TELEPORT_CANCEL')} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600 text-[10px] md:text-xs mt-1`}>GAK JADI</button>
+                  <button onClick={() => !uiLocked && handleAction('TELEPORT_CANCEL')} disabled={uiLocked} className={`${smBtn} bg-slate-700 text-slate-300 hover:bg-slate-600 text-[10px] md:text-xs mt-1`}>GAK JADI</button>
                 </div>
               ) : (<p className="text-slate-400 text-xs font-bold animate-pulse">Bot cek jadwal KRL 🚆...</p>)}
             </>
@@ -2622,7 +2603,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <p className="text-red-500 font-mono font-bold text-sm md:text-lg my-2">-Rp {modalData.rent}K</p>
               {modalData.isMonopoly ? <p className="text-[8px] bg-red-900/50 text-red-300 px-2 py-0.5 rounded-full mb-3 animate-pulse border border-red-500/50 shadow-[0_0_10px_rgba(220,38,38,0.5)]">⚠️ 2x LIPAT (MONOPOLI KOMPLEKS) ⚠️</p> : null}
               
-              {/* PERINGATAN KRITIS SEBELUM BAYAR SEWA */}
               { !botIsThinking && (currentPlayer.money - modalData.rent < 0) && (
                  <div className="bg-red-900/40 border border-red-500 rounded p-2 mb-3 text-left w-full shadow-inner animate-pulse">
                     <p className="text-[10px] text-red-300 font-bold flex items-center gap-1"><AlertTriangle size={12}/> PERINGATAN KRITIS!</p>
@@ -2632,7 +2612,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
 
               {!botIsThinking ? (
                 <div className="flex flex-col w-full gap-2">
-                   <button onClick={() => handleAction('PAY_RENT')} className={`${smBtn} bg-red-600 hover:bg-red-500`}>BAYAR</button>
+                   <button onClick={() => !uiLocked && handleAction('PAY_RENT')} disabled={uiLocked} className={`${smBtn} bg-red-600 hover:bg-red-500`}>BAYAR</button>
                 </div>
               ) : (<p className="text-slate-400 text-xs animate-pulse">Bot nangis ngorek celengan 😭...</p>)}
             </>
@@ -2644,7 +2624,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <h2 className="text-sm md:text-base font-black text-white leading-tight">{modalData.name}</h2>
               <p className="text-orange-500 font-mono font-bold text-sm md:text-lg my-3">-Rp {modalData.price}K</p>
               
-              {/* PERINGATAN KRITIS SEBELUM BAYAR PAJAK */}
               { !botIsThinking && (currentPlayer.money - modalData.price < 0) && (
                  <div className="bg-red-900/40 border border-red-500 rounded p-2 mb-3 text-left w-full shadow-inner animate-pulse">
                     <p className="text-[10px] text-red-300 font-bold flex items-center gap-1"><AlertTriangle size={12}/> PERINGATAN KRITIS!</p>
@@ -2653,7 +2632,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               )}
 
               {!botIsThinking ? (
-                <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-orange-600 hover:bg-orange-500`}>BAYAR</button>
+                <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-orange-600 hover:bg-orange-500`}>BAYAR</button>
               ) : (<p className="text-slate-400 text-xs animate-pulse">Bot nangis ngorek celengan 😭...</p>)}
             </>
           )}
@@ -2664,7 +2643,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <h2 className="text-sm md:text-base font-black text-white">MASUK PENJARA!</h2>
               <div className="my-2"/>
               {!botIsThinking ? (
-                <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>PASRAH</button>
+                <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>PASRAH</button>
               ) : (<p className="text-slate-400 text-xs animate-pulse">Bot nelpon pengacara ☎️...</p>)}
             </>
           )}
@@ -2675,7 +2654,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <h2 className="text-sm md:text-base font-black text-red-500">BANGKRUT!</h2>
               <p className="text-[9px] text-slate-400 my-2">Uangmu habis. Lahan disita rentenir.</p>
               {!botIsThinking ? (
-                <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-red-800 border border-red-500 text-white hover:bg-red-700`}>KELUAR GAME</button>
+                <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-red-800 border border-red-500 text-white hover:bg-red-700`}>KELUAR GAME</button>
               ) : (<p className="text-slate-400 text-xs animate-pulse">Bot gembel out 💀...</p>)}
             </>
           )}
@@ -2698,7 +2677,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   <h2 className="text-xs md:text-sm font-black text-white leading-tight mb-2">TAKDIR WARGA</h2>
                   <p className="text-slate-200 text-[10px] md:text-xs font-medium mb-3 leading-snug">"{modalData.eventData.message}"</p>
                   
-                  {/* FITUR EMOJI BISA DI KLIK UNTUK LIHAT DETAIL EFEK */}
                   <div className="flex gap-2 justify-center mb-1">
                      {modalData.eventData.effects && modalData.eventData.effects.map((e, i) => (
                         <button 
@@ -2714,7 +2692,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   
                   <p className="text-[9px] text-slate-400 mb-3 animate-pulse italic">*Tap ikon di atas buat liat detail kombo.</p>
 
-                  {/* Keterangan Detail Combo */}
                   {selectedEffectIdx !== null && modalData.eventData.effects[selectedEffectIdx] && (
                      <div className="bg-blue-900/40 border border-blue-500/50 p-2 rounded-xl mb-4 text-left w-full shadow-inner animate-in fade-in duration-200">
                         <p className="text-[10px] text-blue-300 font-bold mb-1 flex items-center gap-1"><Info size={10}/> Detail Keputusan:</p>
@@ -2735,7 +2712,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      </div>
                   )}
 
-                  {/* PERINGATAN KRITIS SEBELUM MENERIMA EFEK BURUK EVENT AI */}
                   {!botIsThinking && willBankrupt && (
                      <div className="bg-red-900/40 border border-red-500 rounded p-2 mb-3 text-left w-full shadow-inner animate-pulse">
                         <p className="text-[10px] text-red-300 font-bold flex items-center gap-1"><AlertTriangle size={12}/> PERINGATAN KRITIS!</p>
@@ -2744,7 +2720,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   )}
 
                   {!botIsThinking ? (
-                    <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-blue-600 hover:bg-blue-500`}>SIAAP BOS</button>
+                    <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-blue-600 hover:bg-blue-500`}>SIAAP BOS</button>
                   ) : (<p className="text-slate-400 text-xs animate-pulse">Bot memproses 🔮...</p>)}
                 </>
               );
@@ -2757,7 +2733,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                <p className="text-yellow-400 font-bold text-xs md:text-sm mb-2">{modalData.card.name}</p>
                <p className="text-slate-300 text-[10px] mb-4 leading-tight">"{modalData.card.desc}"</p>
                {!botIsThinking ? (
-                 <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-yellow-600 text-slate-900`}>AMBIL</button>
+                 <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-yellow-600 text-slate-900`}>AMBIL</button>
                ) : (<p className="text-slate-400 text-xs animate-pulse">Bot nyimpen kartu 💳...</p>)}
              </>
           )}
@@ -2775,7 +2751,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
               <p className="text-white text-[10px] md:text-xs font-medium mb-3 leading-tight">{modalData.question}</p>
               <div className="w-full flex flex-col gap-1.5">
                  {modalData.options.map((opt, i) => (
-                    <button key={i} onClick={() => !botIsThinking && handleAction('QUIZ_ANSWER', i)} disabled={botIsThinking} className="w-full text-left px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-900 border border-slate-700 text-slate-200 text-[9px] md:text-[11px] font-medium leading-tight transition-colors">
+                    <button key={i} onClick={() => !botIsThinking && !uiLocked && handleAction('QUIZ_ANSWER', i)} disabled={botIsThinking || uiLocked} className="w-full text-left px-2 py-1.5 rounded-lg bg-slate-800 hover:bg-purple-900 border border-slate-700 text-slate-200 text-[9px] md:text-[11px] font-medium leading-tight transition-colors">
                       {opt}
                     </button>
                  ))}
@@ -2798,7 +2774,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      <h2 className="text-sm md:text-lg font-black text-red-500 mb-2">SALAH WOY!</h2>
                      <p className="text-white text-xs mb-3">Denda Kuis: -Rp100K</p>
 
-                     {/* PERINGATAN KRITIS SEBELUM MENERIMA EFEK BURUK KUIS AI */}
                      {!botIsThinking && !((currentPlayer.buffs || []).includes('LOSS_EXEMPTION')) && (currentPlayer.money - 100 < 0) && (
                         <div className="bg-red-900/40 border border-red-500 rounded p-2 mb-3 text-left w-full shadow-inner animate-pulse">
                            <p className="text-[10px] text-red-300 font-bold flex items-center gap-1"><AlertTriangle size={12}/> PERINGATAN KRITIS!</p>
@@ -2808,7 +2783,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                    </>
                 )}
                 {!botIsThinking ? (
-                   <button onClick={() => handleAction('ACKNOWLEDGE')} className={`${smBtn} bg-slate-700`}>LANJUTKAN</button>
+                   <button onClick={() => !uiLocked && handleAction('ACKNOWLEDGE')} disabled={uiLocked} className={`${smBtn} bg-slate-700`}>LANJUTKAN</button>
                 ) : (<p className="text-slate-400 text-xs animate-pulse">Bot bersyukur 🙏...</p>)}
              </div>
           )}
@@ -2817,7 +2792,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             <>
               <h2 className="text-sm md:text-base font-black text-white mb-4">Giliran Kelar</h2>
               {!botIsThinking ? (
-                <button onClick={() => handleAction('END_TURN')} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>OPER DADU</button>
+                <button onClick={() => !uiLocked && handleAction('END_TURN')} disabled={uiLocked} className={`${smBtn} bg-slate-700 hover:bg-slate-600`}>OPER DADU</button>
               ) : (<p className="text-slate-400 text-xs animate-pulse">Bot udud dulu 🚬...</p>)}
             </>
           )}
@@ -2854,20 +2829,38 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
          </div>
       </div>
 
-      {/* CENTER: Papan + Menu Bawah (dempet persis di bawah papan) */}
-      <div className="flex-1 w-full flex flex-col items-center justify-start md:justify-center overflow-y-auto no-scrollbar p-2 md:p-4 gap-3 md:gap-4 relative">
+      {/* CENTER: Papan + Menu Bawah */}
+<div className="flex-1 w-full flex flex-col items-center justify-start md:justify-center overflow-y-auto no-scrollbar py-2 md:py-4 gap-3 md:gap-4 relative">
          
-         {/* THE BOARD */}
-         <div className="w-full max-w-[800px] max-h-[72vh] md:max-h-[80vh] aspect-square flex flex-col mx-auto relative shrink-0">
+         {/* BERITA BERJALAN ALA BURSA EFEK (DIPINDAH KE ATAS PAPAN) */}
+         <div className="w-full max-w-[800px] shrink-0 bg-slate-900 border border-slate-800 rounded-xl flex items-center px-2 py-1.5 overflow-hidden shadow-inner">
+            <div className="bg-red-600 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded mr-2 shrink-0 z-10 shadow-md">INFO +62</div>
+            <div className="flex-1 overflow-hidden whitespace-nowrap mask-edges">
+               <div className="animate-ticker inline-block text-[9px] md:text-[10px] font-mono font-bold text-slate-300">
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+                  <span className="text-orange-300 mx-4">🥚 TELUR: Rp{marketPrices.telur}K</span>
+                  <span className="text-yellow-500 mx-4">🌾 PADI: Rp{marketPrices.padi}K</span>
+                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
+                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
+               </div>
+            </div>
+         </div>
+
+         {/* THE BOARD (RASIO 4:5 PORTRAIT) */}
+<div className="w-full max-w-[800px] aspect-square flex flex-col mx-auto relative shrink-0">
            <div className="w-full h-full bg-[#cde6d0] border-[2px] md:border-[3px] border-slate-800 rounded-lg relative shadow-[0_10px_30px_rgba(0,0,0,0.5)] p-[1px] md:p-[2px]">
              
-             {/* GRID 15x15 */}
-             <div className="w-full h-full grid gap-0" style={{ gridTemplateColumns: '2fr repeat(13, 1fr) 2fr', gridTemplateRows: '2fr repeat(13, 1fr) 2fr' }}>
+             {/* GRID 15x15 (Sudut Potret Biar Petak Atas-Bawah Lebar & Gak Ciut) */}
+{/* GRID 15x15 (Petak Luas Sama Rata) */}
+<div className="w-full h-full grid gap-0" style={{ gridTemplateColumns: '1.5fr repeat(13, 1fr) 1.5fr', gridTemplateRows: '1.5fr repeat(13, 1fr) 1.5fr' }}>
              
-             {/* Center Hub */}
-             <div className="z-30 m-1 md:m-2" style={{ gridColumn: '2 / 15', gridRow: '2 / 15' }}>
-                {renderCenterHub()}
-             </div>
+             {/* Center Hub (Dibuat Absolute Biar Nggak Mendorong Ukuran Petak Papan) */}
+<div className="z-30 relative" style={{ gridColumn: '2 / 15', gridRow: '2 / 15' }}>
+   <div className="absolute inset-1 md:inset-2">
+      {renderCenterHub()}
+   </div>
+</div>
 
              {/* Tiles */}
              {BOARD_TILES.map((tile) => {
@@ -2918,15 +2911,22 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                                 {tile.type === 'lottery' ? <Coins size={8} className="text-teal-700 opacity-80 md:w-6 md:h-6" /> : null}
                                 {tile.type === 'auction' ? <Gavel size={8} className="text-rose-700 opacity-80 md:w-6 md:h-6" /> : null}
 
+                                {/* Teks untuk Properti & Pajak */}
                                 {tile.type === 'property' ? <span className={`text-[3px] sm:text-[4px] md:text-[6px] font-black text-center ${propData?.isMortgaged?'text-slate-400':'text-slate-900'} leading-[1.1] mt-[1px] block w-[90%] break-words`}>{tile.name.substring(0,4).toUpperCase()}</span> : null}
                                 {tile.type === 'tax' ? <span className="text-[3.5px] sm:text-[4px] md:text-[6px] font-black text-orange-700 leading-none mt-[1px]">TAX</span> : null}
+                                
+{/* Teks Miring untuk Petak Non-Properti/Non-Sudut (DISEMBUNYIKAN) */}
+{tile.type !== 'property' && tile.type !== 'tax' ? (
+   <span className="hidden text-[4.5px] sm:text-[5px] md:text-[7.5px] font-black text-slate-900 leading-tight transform -rotate-45 text-center w-[150%] absolute opacity-85 tracking-widest drop-shadow-[0_1px_1px_rgba(255,255,255,0.8)] pointer-events-none z-0">
+      {tile.name.toUpperCase()}
+   </span>
+) : null}
                              </div>
                          </div>
 
                          {/* Status Kepemilikan & Rumah */}
                          {owner && !owner.isBankrupt && (!propData.isMortgaged || propData.isMortgaged === 'land') ? (
                              <div className={`${layout.borderClass} ${owner.color} z-10 flex items-center justify-center gap-[1px] shrink-0 ${layout.houseDir}`}>
-                                {/* ICON UPGRADE PROPERTY VS AGRICULTURE/MINE */}
                                 {tile.type === 'property' && (propData.level || 0) > 0 && (propData.level || 0) < 5 ? Array(propData.level).fill(0).map((_, i) => (
                                    <span key={i} className={`text-[3px] md:text-[5px] leading-none ${layout.contentRot}`}>🏠</span>
                                 )) : null}
@@ -2945,9 +2945,9 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                          ) : null}
                       </div>
                    ) : (
-                      // SUDUT PAPAN KOTAK PRESISI
-                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-                         <div style={cornerStyle} className="w-[120%] h-[120%] flex flex-col items-center justify-center p-[2px]">
+// SUDUT PAPAN POTRET PRESISI
+<div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+   <div style={cornerStyle} className="w-[140%] h-[140%] flex flex-col items-center justify-center p-[2px]">
                              {tile.type === 'go' ? <span className="text-[6px] md:text-[10px] font-black text-white leading-none tracking-widest drop-shadow-md">START</span> : null}
                              {tile.type === 'jail' ? <span className="text-[5px] md:text-[8px] font-black text-white leading-none text-center drop-shadow-md">PENJARA</span> : null}
                              {tile.type === 'parking' ? <span className="text-[5px] md:text-[8px] font-black text-white leading-none drop-shadow-md">PARKIR</span> : null}
@@ -3001,24 +3001,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                 );
              })}
          </div>
-{/* ======================================================= */}
-         {/* TEMPEL KODE BERITA BERJALANNYA DI SINI BOSKU!!! */}
-         {/* BERITA BERJALAN ALA BURSA EFEK */}
-         <div className="w-full max-w-[800px] shrink-0 bg-slate-900 border border-slate-800 rounded-xl flex items-center px-2 py-1.5 overflow-hidden shadow-inner">
-            <div className="bg-red-600 text-white text-[8px] md:text-[10px] font-black px-2 py-0.5 rounded mr-2 shrink-0 z-10 shadow-md">INFO +62</div>
-            <div className="flex-1 overflow-hidden whitespace-nowrap mask-edges">
-               <div className="animate-ticker inline-block text-[9px] md:text-[10px] font-mono font-bold text-slate-300">
-                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
-                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
-                  <span className="text-orange-300 mx-4">🥚 TELUR: Rp{marketPrices.telur}K</span>
-                  <span className="text-yellow-500 mx-4">🌾 PADI: Rp{marketPrices.padi}K</span>
-                  {/* Di-copy 2x biar jalannya nyambung terus */}
-                  <span className="text-yellow-400 mx-4">🪙 EMAS: Rp{goldPrice}K</span>
-                  <span className="text-lime-400 mx-4">🌾 GANDUM: Rp{marketPrices.gandum}K</span>
-               </div>
-            </div>
-         </div>
-         {/* ======================================================= */}
 
       </div>
 
@@ -3061,7 +3043,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                </div>
             </div>
 
-            {/* Fitur Jual Antik ke Bank */}
             {((currentPlayer?.antiques || []).length > 0) ? (
               <div className="bg-slate-900 p-4 rounded-xl border border-rose-900/50 mt-4 max-h-40 overflow-y-auto no-scrollbar">
                  <p className="text-slate-400 text-xs font-bold mb-2 uppercase tracking-wider text-center">Jual Barang Antik Lelang</p>
@@ -3187,7 +3168,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
             </div>
 
             <div className="flex flex-col gap-3">
-               {/* Baris Gandum */}
                <div className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">
                   <div>
                      <p className="text-xs text-slate-400">Stok Gandum</p>
@@ -3198,7 +3178,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      <button onClick={() => handleSellAsset('gandum', true)} disabled={(currentPlayer.assets?.gandum || 0) === 0} className="px-3 py-2 bg-red-600/20 text-red-400 border border-red-600/50 rounded-lg font-bold disabled:opacity-50 text-[10px] active:scale-95 transition-transform">JUAL SEMUA</button>
                   </div>
                </div>
-               {/* Baris Telur */}
                <div className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">
                   <div>
                      <p className="text-xs text-slate-400">Stok Telur</p>
@@ -3209,7 +3188,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      <button onClick={() => handleSellAsset('telur', true)} disabled={(currentPlayer.assets?.telur || 0) === 0} className="px-3 py-2 bg-red-600/20 text-red-400 border border-red-600/50 rounded-lg font-bold disabled:opacity-50 text-[10px] active:scale-95 transition-transform">JUAL SEMUA</button>
                   </div>
                </div>
-               {/* Baris Padi */}
                <div className="flex justify-between items-center bg-slate-900 p-3 rounded-xl border border-slate-700">
                   <div>
                      <p className="text-xs text-slate-400">Stok Padi</p>
@@ -3258,7 +3236,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      <p className="font-mono font-bold text-white">Rp{viewingPlayer.debt || 0}K</p>
                   </div>
                   
-                  {/* Display Timer (Passive Income) Per Property */}
                   {(() => {
                       const playerAgriMines = BOARD_TILES.filter(t => (t.type === 'agriculture' || t.type === 'mine') && properties[t.id]?.ownerId === viewingPlayer.id && properties[t.id]?.isMortgaged !== 'full' && properties[t.id]?.isMortgaged !== 'land' && properties[t.id]?.isMortgaged !== true);
                       if (playerAgriMines.length > 0) {
@@ -3277,7 +3254,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                       return null;
                   })()}
 
-                  {/* Display Assets & Antiques */}
                   <div className="col-span-2 bg-slate-900 p-3 rounded-xl border border-lime-600/30">
                      <p className="text-[10px] text-lime-400 font-bold mb-1 flex items-center gap-1"><Store size={12}/> Aset Tani & Koleksi Antik</p>
                      <div className="flex gap-2 flex-wrap mb-1">
@@ -3295,7 +3271,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      {(!viewingPlayer.assets?.gandum && !viewingPlayer.assets?.telur && !viewingPlayer.assets?.padi && (viewingPlayer.antiques||[]).length===0) ? <p className="text-[10px] text-slate-500 italic">Belum punya aset fisik.</p> : null}
                   </div>
 
-                  {/* LOGIKA GROUPING KARTU VIP BERDASARKAN JENIS */}
                   {((viewingPlayer.buffs || []).length > 0) ? (
                     <div className="col-span-2 bg-slate-900 p-3 rounded-xl border border-purple-600/30 flex flex-col gap-2">
                        <p className="text-[10px] text-purple-400 font-bold flex items-center gap-1"><Ticket size={12}/> Kartu VIP (Klik kalau mau Aktif)</p>
@@ -3386,7 +3361,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                   viewingProperty.type === 'quiz' ? <><HelpCircle size={12}/> Kuis Pengetahuan</> : 'Petak Khusus'}
                </p>
 
-               {/* INFO & MANFAAT PETAK */}
                <div className="bg-slate-900/50 p-3 rounded-xl border border-slate-700 mb-4 text-[10px] text-slate-300 leading-relaxed shadow-inner">
                   <p className="font-black text-white mb-1 flex items-center gap-1"><Info size={12} className="text-blue-400"/> Sistem & Manfaat Petak:</p>
                   {viewingProperty.type === 'property' && "Lahan ini bisa dibeli dan dibangun Rumah/Hotel (Maks level 5). Sewa akan meningkat tajam setiap levelnya. Kuasai semua lahan sewarna (Monopoli) untuk menggandakan harga sewa! Bisa digadai jika kamu butuh uang cepat."}
@@ -3412,7 +3386,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                      <span className="font-mono font-bold text-green-400">Rp {viewingProperty.price}K</span>
                    </div>
 
-                   {/* TOTAL NILAI ASET SAAT INI (Beli + Bangunan) */}
                    {propertiesRef.current[viewingProperty.id] ? (
                       <div className="flex justify-between items-end border-b border-slate-700 pb-2">
                         <span className="text-xs text-slate-400">Total Nilai Aset Saat Ini</span>
@@ -3420,7 +3393,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                       </div>
                    ) : null}
                    
-                   {/* Sewa Hanya Untuk Property, Station, Utility */}
                    {(viewingProperty.type === 'property' || viewingProperty.type === 'station' || viewingProperty.type === 'utility') ? (
                       <div className="flex flex-col border-b border-slate-700 pb-2">
                         <div className="flex justify-between items-end">
@@ -3472,7 +3444,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                    {propertiesRef.current[viewingProperty.id] && !currentPlayer.isBot && !currentPlayer.isBankrupt ? (
                      <div className="mt-4 pt-4 border-t border-slate-700 flex flex-col gap-2">
                        
-                        {/* Jika milik musuh -> Ajukan Tawaran Trade */}
+{/* Jika milik musuh -> Ajukan Tawaran Trade */}
                         {propertiesRef.current[viewingProperty.id].ownerId !== currentPlayer.id ? (
                           <>
                              {(() => {
@@ -3524,7 +3496,7 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
                                           <Lock size={12}/> GADAI TANAH SAJA (Dapat Rp{viewingProperty.price/2}K)
                                        </button>
                                        <button onClick={() => handleGadai('full')} className="w-full py-2 bg-red-600/20 text-red-500 border border-red-600/50 rounded-lg text-[10px] font-bold hover:bg-red-600/40 flex justify-center items-center gap-1 transition-colors">
-                                          <Lock size={12}/> GADAI SEMUA (Dapat Rp{(viewingProperty.price/2) + (propertiesRef.current[viewingProperty.id].level * viewingProperty.hPrice / 2)}K)
+                                          <Lock size={12}/> GADAI SEMUA (Dapat Rp{(viewingProperty.price/2) + ((propertiesRef.current[viewingProperty.id].level||0) * (viewingProperty.hPrice||0) / 2)}K)
                                        </button>
                                     </div>
                                  ) : (
@@ -3610,7 +3582,6 @@ addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPa
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* TAMBAHIN KODE ANIMASI INI DI SINI */
         @keyframes ticker {
           0% { transform: translateX(0); }
           100% { transform: translateX(-50%); }
