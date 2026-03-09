@@ -1087,8 +1087,8 @@ STRICT OUTPUT JSON MURNI:
           playSound('coin');
 
           const ownerObj = playersRef.current.find(p => p.id === ownerId);
-          const oOld = ownerObj ? (ownerObj.money || 0) : 0;
-          const actualPaid = player.money > 0 ? Math.min(rentAmt, player.money) : 0;
+          const oOld = ownerObj ? (ownerObj.money || 0) : 0;                   
+          const actualPaid = Math.max(0, newMoney < 0 ? rentAmt + newMoney : rentAmt);          
           const oNew = oOld + actualPaid;
 
           addLog(`💰 PEMASUKAN SEWA: ${ownerName} menerima pembayaran masuk Rp${actualPaid}K. (Saldo: Rp${oOld}K ➡️ Rp${oNew}K)`);
