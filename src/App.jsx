@@ -1912,8 +1912,9 @@ STRICT OUTPUT JSON MURNI:
   };
 
   const handleBorrowBank = () => {
+     if (uiLocked) return; setUiLocked(true);
      const player = playersRef.current[turnIndex];
-     if (!player) return;
+     if (!player) { setUiLocked(false); return; }
      if ((player.debt || 0) >= 1000) {
         setErrorMsg("Batas Hutang Maksimal (Rp1000K) sudah tercapai!"); playSound('fail');
      } else {
@@ -1923,11 +1924,14 @@ STRICT OUTPUT JSON MURNI:
         addLog(`🏛️ BANK PINJOL: ${player.name} nekat minjol Rp500K (Tercatat hutang Rp600K). (Saldo: Rp${oldM}K ➡️ Rp${newM}K)`);
         playSound('coin');
      }
+     setTimeout(() => setUiLocked(false), 300);
   };
+
   
   const handlePayBank = () => {
+     if (uiLocked) return; setUiLocked(true);
      const player = playersRef.current[turnIndex];
-     if (!player || (player.debt || 0) <= 0) return;
+     if (!player || (player.debt || 0) <= 0) { setUiLocked(false); return; }
      
      const maxPayable = Math.min((player.money || 0), (player.debt || 0), repayAmount);
 
@@ -1942,7 +1946,9 @@ STRICT OUTPUT JSON MURNI:
      } else {
         setErrorMsg(`Nominal cicilan tidak sesuai atau uang tidak cukup!`); playSound('fail');
      }
+     setTimeout(() => setUiLocked(false), 300);
   };
+
 
   const handleSellAntique = (index, antique) => {
      const oldM = currentPlayer.money;
@@ -2059,8 +2065,9 @@ STRICT OUTPUT JSON MURNI:
   };
 
   const handleBuyGold = () => {
+     if (uiLocked) return; setUiLocked(true);
      const player = playersRef.current[turnIndex];
-     if (!player) return;
+     if (!player) { setUiLocked(false); return; }
      if ((player.money || 0) >= goldPrice) {
         const oldM = player.money;
         const newM = oldM - goldPrice;
@@ -2072,11 +2079,14 @@ STRICT OUTPUT JSON MURNI:
         addLog(`💰 BELI EMAS: ${player.name} borong 1g Emas senilai Rp${goldPrice}K. (Saldo: Rp${oldM}K ➡️ Rp${newM}K)`);
         playSound('coin');
      } else { setErrorMsg('Uang Tunai Kamu Sedang Kosong!'); playSound('fail'); }
+     setTimeout(() => setUiLocked(false), 300);
   };
+
   
   const handleSellGold = (sellAll = false) => {
+     if (uiLocked) return; setUiLocked(true);
      const player = playersRef.current[turnIndex];
-     if (!player || (player.gold || 0) <= 0) return;
+     if (!player || (player.gold || 0) <= 0) { setUiLocked(false); return; }
      
      const sellAmt = sellAll ? player.gold : ((player.gold || 0) >= 1 ? 1 : player.gold);
      const sellValue = Math.round(sellAmt * goldPrice);
@@ -2094,11 +2104,14 @@ STRICT OUTPUT JSON MURNI:
      });
      addLog(`💰 JUAL EMAS: ${player.name} nyairin ${sellAmt}g Emas seharga Rp${sellValue}K! (Saldo: Rp${oldM}K ➡️ Rp${newM}K)`);
      playSound('coin');
+     setTimeout(() => setUiLocked(false), 300);
   };
 
+
   const handleSellAsset = (type, sellAll = false) => {
+     if (uiLocked) return; setUiLocked(true);
      const player = playersRef.current[turnIndex];
-     if (!player) return;
+     if (!player) { setUiLocked(false); return; }
      const amount = player.assets[type] || 0;
      if (amount > 0) {
         const qtyToSell = sellAll ? amount : 1;
@@ -2114,7 +2127,9 @@ STRICT OUTPUT JSON MURNI:
      } else {
         setErrorMsg(`Gudangmu Kosong! Kamu tidak memiliki persediaan ${type}!`); playSound('fail');
      }
+     setTimeout(() => setUiLocked(false), 300);
   };
+
 
   // --- ROTATION UTILS ---
   const getGridStyle = (id) => {
@@ -2326,14 +2341,14 @@ STRICT OUTPUT JSON MURNI:
 
                         {/* MODAL TUTORIAL / INFO PANDUAN GAME */}
         {showTutorial && (
-          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => setShowTutorial(false)}>
+          <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4" onClick={() => { setShowTutorial(false); playSound('click'); }}>
             <div className="bg-slate-800 w-full max-w-md rounded-3xl p-5 shadow-2xl border border-blue-500/50 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
                <div className="flex justify-between items-center mb-4 border-b border-slate-700 pb-3">
                  <div className="flex items-center gap-2">
                    <BookOpen className="text-blue-400" size={24}/>
                    <h2 className="text-lg font-black text-white uppercase tracking-wider">Panduan Warga +62</h2>
                  </div>
-                 <button onClick={() => setShowTutorial(false)} className="text-slate-400 hover:text-white"><X size={24}/></button>
+                 <button onClick={() => { setShowTutorial(false); playSound('click'); }} className="text-slate-400 hover:text-white"><X size={24}/></button>
                </div>
                
                <div className="overflow-y-auto no-scrollbar space-y-4 text-sm text-slate-300 pb-4">
@@ -2421,7 +2436,7 @@ STRICT OUTPUT JSON MURNI:
                   </div>
 
                </div>
-               <button onClick={() => setShowTutorial(false)} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold mt-2 active:scale-95 transition-transform shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2">
+               <button onClick={() => { setShowTutorial(false); playSound('click'); }} className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold mt-2 active:scale-95 transition-transform shadow-[0_0_15px_rgba(37,99,235,0.4)] flex items-center justify-center gap-2">
                   <CheckCircle size={18}/> SAYA SIAP JADI SULTAN!
                </button>
             </div>
@@ -3158,7 +3173,8 @@ STRICT OUTPUT JSON MURNI:
                  <Landmark className="text-blue-400" size={24}/>
                  <h2 className="text-xl font-black text-white">Bank Sentral</h2>
                </div>
-               <button onClick={() => {setShowBankLoan(false); playSound('click'); setRepayAmount(100);}} className="text-slate-400 hover:text-white"><X size={20}/></button>
+               <button onClick={() => { setShowBankLoan(false); playSound('click'); }} className="text-slate-400 hover:text-white"><X size={20}/></button>
+
             </div>
             
             <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center mb-6">
@@ -3352,14 +3368,14 @@ STRICT OUTPUT JSON MURNI:
 
       {/* 3. Player Detail Overlay */}
       {viewingPlayer && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => setViewingPlayer(null)}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setViewingPlayer(null); playSound('click'); }}>
           <div className="bg-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-slate-700 flex flex-col max-h-[90vh]" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-4">
                <div className="flex items-center gap-2">
                  <div className={`w-4 h-4 rounded-full ${viewingPlayer.color}`} />
                  <h2 className="text-xl font-black text-white">{viewingPlayer.name}</h2>
                </div>
-               <button onClick={() => setViewingPlayer(null)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+               <button onClick={() => { setViewingPlayer(null); playSound('click'); }} className="text-slate-400 hover:text-white"><X size={20}/></button>
             </div>
             
             <div className="overflow-y-auto no-scrollbar space-y-3">
@@ -3479,7 +3495,7 @@ STRICT OUTPUT JSON MURNI:
 
       {/* 4. Property Detail Overlay (GADAI / TEBUS / TRADE) */}
       {viewingProperty && currentPlayer && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => {setViewingProperty(null); setErrorMsg('');}}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setViewingProperty(null); setErrorMsg(''); playSound('click'); }}>
           <div className="bg-slate-800 w-full max-w-[320px] rounded-2xl shadow-2xl border border-slate-700 overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
             {viewingProperty.group ? <div className={`h-12 w-full ${viewingProperty.color} flex items-center justify-center`}>
                {viewingProperty.type === 'agriculture' ? <Tractor size={20} className="text-white/80" /> : 
@@ -3491,7 +3507,7 @@ STRICT OUTPUT JSON MURNI:
             </div> : null}
             
             <div className="p-5 flex flex-col relative max-h-[85vh] overflow-y-auto no-scrollbar">
-               <button onClick={() => {setViewingProperty(null); setErrorMsg('');}} className="absolute top-2 right-2 text-slate-400 hover:text-white"><X size={18}/></button>
+               <button onClick={() => { setViewingProperty(null); setErrorMsg(''); playSound('click'); }} className="absolute top-2 right-2 text-slate-400 hover:text-white"><X size={18}/></button>
                
                <h2 className="text-xl font-black text-white mb-1 pr-6">{viewingProperty.name}</h2>
                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-3 flex items-center gap-1">
@@ -3738,11 +3754,11 @@ STRICT OUTPUT JSON MURNI:
 
       {/* History Drawer */}
       {showLogsMenu && (
-        <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col justify-end backdrop-blur-sm" onClick={() => setShowLogsMenu(false)}>
+        <div className="fixed inset-0 bg-black/60 z-[60] flex flex-col justify-end backdrop-blur-sm" onClick={() => { setShowLogsMenu(false); playSound('click'); }}>
           <div className="bg-slate-900 rounded-t-3xl h-[75vh] flex flex-col border-t border-slate-700" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center p-4 border-b border-slate-800">
               <h3 className="font-bold text-base text-white flex items-center gap-2"><History size={18}/> Log Perjalanan Warga</h3>
-              <button onClick={() => setShowLogsMenu(false)} className="p-1.5 bg-slate-800 rounded-full text-white"><X size={18} /></button>
+              <button onClick={() => { setShowLogsMenu(false); playSound('click'); }} className="p-1.5 bg-slate-800 rounded-full text-white"><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {logs.map((log, i) => (
