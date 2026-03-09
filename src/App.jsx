@@ -1847,34 +1847,49 @@ STRICT OUTPUT JSON MURNI:
      playSound('coin');
   };
 
-  const handleTradeRequest = () => {
-     const player = playersRef.current[turnIndex];
-     if (!player || !viewingProperty) return;
-     const targetProp = viewingProperty;
-     const propData = propertiesRef.current[targetProp.id];
-     
-     const baseValue = targetProp.price + ((propData.level || 0) * (targetProp.hPrice || 0));
-     let cost = baseValue * 2; 
-
-     if (propData.isMortgaged) {
-         let redeemCost = (targetProp.price / 2) + 20;
-         if (propData.isMortgaged !== 'land') {
-             redeemCost += ((propData.level || 0) * (targetProp.hPrice || 0) / 2);
-         }
-         cost -= redeemCost;
-         cost = Math.max(cost, baseValue); 
-     }
-
-     const owner = playersRef.current.find(p => p.id === propData.ownerId);
-     
-     if ((player.money || 0) >= cost) {
-        setPendingTrade({ buyer: player, owner: owner, prop: targetProp, cost: cost, isKudeta: false, isMortgaged: propData.isMortgaged });
-        setViewingProperty(null);
-        playSound('magic');
-     } else {
-        setErrorMsg(`Butuh minimal tabungan Rp${cost}K untuk melayangkan tawaran Akuisisi Paksa!`); playSound('fail');
-     }
+    const handleTradeRequest = () => {
+    const player = playersRef.current[turnIndex];
+    if (!player || !viewingProperty) return;
+    const targetProp = viewingProperty;
+    const propData = propertiesRef.current[targetProp.id];
+    const owner = playersRef.current.find(p => p.id === propData.ownerId);
+    let cost = 0;
+    const assetValue = targetProp.price + ((propData.level || 0) * (targetProp.hPrice || 0));
+    if (targetProp.type === 'property') {
+      const currentRent = calculateRent(targetProp, propData, owner.id);
+      cost = assetValue + (currentRent * 1.5);
+    } 
+    else if (targetProp.type === 'utility' || targetProp.type === 'station') {
+      cost = targetProp.price * 3;
+    } 
+    else if (targetProp.type === 'agriculture' || targetProp.type === 'mine') {
+      cost = assetValue * 2.5;
+    }
+    if (propData.isMortgaged) {
+      let redeemCost = (targetProp.price / 2) + 20;
+      if (propData.isMortgaged !== 'land') {
+        redeemCost += ((propData.level || 0) * (targetProp.hPrice || 0) / 2);
+      }      
+      cost = Math.max(cost - redeemCost, assetValue); 
+    }
+    const finalCost = Math.floor(cost);   
+    if ((player.money || 0) >= finalCost) {
+      setPendingTrade({ 
+        buyer: player, 
+        owner: owner, 
+        prop: targetProp, 
+        cost: finalCost, 
+        isKudeta: false,
+        isMortgaged: propData.isMortgaged 
+      });
+      setViewingProperty(null);
+      playSound('magic');
+    } else {
+      setErrorMsg(`Butuh Rp${finalCost}K untuk akuisisi lahan ini!`);
+      playSound('fail');
+    }
   };
+
 
   const handleTradeResponse = (isAccepted, isKudetaMode = false) => {
      if (!pendingTrade) return;
@@ -2239,15 +2254,20 @@ STRICT OUTPUT JSON MURNI:
                   </div>
 
                   {/* SECTION 4: MAFIA & AI */}
-                  <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
-                     <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white">ADVANCED</div>
-                     <p className="font-bold text-white mb-2 flex items-center gap-1"><Crosshair size={14} className="text-red-400"/> Sistem Mafia & Master AI</p>
-                     <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
-                        <li><b>Akuisisi Paksa (Kudeta):</b> Incar tanah musuh? Tap tanah mereka dan ajukan Akuisisi! Syaratnya: Kamu harus bayar <span className="text-red-400 font-bold">2X Lipat</span> dari total harga lahan+bangunan mereka.</li>
-                        <li><b>Event Master AI:</b> Mendarat di Dana Umum/Kesempatan? AI akan membuat cerita takdirmu (Denda/Hadiah/Teleport/Masuk Penjara). Nasibmu murni di tangan AI!</li>
-                        <li><b>Kuis AI:</b> Jawab pertanyaan receh. Benar +200K, Salah -100K.</li>
-                     </ul>
-                  </div>
+<div className="bg-slate-900 p-3 rounded-xl border border-slate-700 relative overflow-hidden">
+   <div className="absolute top-0 right-0 bg-red-600 text-[8px] font-black px-2 py-0.5 rounded-bl-lg text-white">ADVANCED</div>
+   <p className="font-bold text-white mb-2 flex items-center gap-1"><Crosshair size={14} className="text-red-400"/> Sistem Mafia & Master AI</p>
+   <ul className="text-[11px] leading-relaxed space-y-1 list-disc list-inside text-slate-300">
+      <li>
+         <b>Akuisisi Paksa:</b> Incar tanah musuh? Tap tanah mereka dan ajukan Akuisisi! 
+         Syaratnya: Harga dihitung berdasarkan <b>Nilai Strategis</b> lahan (Aset + Potensi Sewa/Panen). 
+         Makin gacor lahannya, makin mahal tebusannya!
+      </li>
+      <li><b>Event Master AI:</b> Mendarat di Dana Umum/Kesempatan? AI akan membuat cerita takdirmu (Denda/Hadiah/Teleport/Masuk Penjara). Nasibmu murni di tangan AI!</li>
+      <li><b>Kuis AI:</b> Jawab pertanyaan receh. Benar +200K, Salah -100K.</li>
+   </ul>
+</div>
+
 
                   {/* SECTION 5: TIER S - KARTU VIP */}
                   <div className="bg-slate-900 p-3 rounded-xl border border-purple-500/50 relative overflow-hidden shadow-[0_0_15px_rgba(168,85,247,0.15)]">
@@ -3409,11 +3429,26 @@ STRICT OUTPUT JSON MURNI:
                    ) : null}
 
                    {viewingProperty.hPrice ? (
-                     <div className="flex justify-between items-end border-b border-slate-700 pb-2">
-                       <span className="text-xs text-slate-400">Harga Dasar Upgrade Lvl Selanjutnya</span>
-                       <span className="font-mono font-bold text-yellow-400">Rp {viewingProperty.hPrice * ((propertiesRef.current[viewingProperty.id]?.level || 0) + 1)}K</span>
-                     </div>
-                   ) : null}
+  <div className="flex justify-between items-end border-b border-slate-700 pb-2">
+    <span className="text-xs text-slate-400">Harga Dasar Upgrade Lvl Selanjutnya</span>
+    <span className="font-mono font-bold">
+      {(() => {
+        const pData = propertiesRef.current[viewingProperty.id];
+        const currentLevel = pData?.level || 0;        
+        const maxLevel = (viewingProperty.type === 'agriculture' || viewingProperty.type === 'mine') ? 3 : 5;
+        if (currentLevel >= maxLevel) {
+          return (
+            <span className="bg-gradient-to-r from-yellow-400 via-yellow-200 to-yellow-600 bg-clip-text text-transparent drop-shadow-[0_0_5px_rgba(251,191,36,0.6)] animate-pulse">
+              LEVEL MAX ✨
+            </span>
+          );
+        }
+        return <span className="text-yellow-400">Rp {viewingProperty.hPrice * (currentLevel + 1)}K</span>;
+      })()}
+    </span>
+  </div>
+) : null}
+
                    
                    <div className={`mt-4 p-3 bg-slate-900 rounded-xl border ${propertiesRef.current[viewingProperty.id]?.isMortgaged ? 'border-red-900/50' : 'border-slate-700'}`}>
                      <p className="text-[10px] text-slate-500 font-bold mb-1">STATUS KEPEMILIKAN</p>
@@ -3448,32 +3483,54 @@ STRICT OUTPUT JSON MURNI:
                      <div className="mt-4 pt-4 border-t border-slate-700 flex flex-col gap-2">
                        
 {/* Jika milik musuh -> Ajukan Tawaran Trade */}
-                        {propertiesRef.current[viewingProperty.id].ownerId !== currentPlayer.id ? (
-                          <>
-                             {(() => {
-                                 const pData = propertiesRef.current[viewingProperty.id];
-                                 const baseValue = viewingProperty.price + ((pData.level || 0) * (viewingProperty.hPrice || 0));
-                                 let tradeCost = baseValue * 2;
-                                 let isMortgagedNow = pData.isMortgaged;
-                                 if (isMortgagedNow) {
-                                     let redeemCost = (viewingProperty.price / 2) + 20;
-                                     if (isMortgagedNow !== 'land') redeemCost += ((pData.level || 0) * (viewingProperty.hPrice || 0) / 2);
-                                     tradeCost -= redeemCost;
-                                     tradeCost = Math.max(tradeCost, baseValue);
-                                 }
-                                 return (
-                                     <button onClick={handleTradeRequest} className="w-full py-2 bg-blue-600/20 text-blue-400 border border-blue-600/50 rounded-lg text-xs font-bold hover:bg-blue-600/40 transition-colors">
-                                        AJUKAN AKUISISI (Bayar Rp{tradeCost}K){isMortgagedNow ? ' - Diskon Gadai' : ''}
-                                     </button>
-                                 );
-                             })()}
-                             {(currentPlayer.buffs || []).includes('FORCE_ACQUIRE') ? (
-                                <button onClick={() => handleKudetaManual(viewingProperty)} className="w-full py-2 bg-purple-600/20 text-purple-400 border border-purple-600/50 rounded-lg text-xs font-bold hover:bg-purple-600/40 flex justify-center items-center gap-1 transition-colors">
-                                   <Crosshair size={14}/> KUDETA LAHAN (GRATIS PAKAI KARTU VIP)
-                                </button>
-                             ) : null}
-                          </>
-                        ) : null}
+{propertiesRef.current[viewingProperty.id].ownerId !== currentPlayer.id ? (
+  <>
+     {(() => {
+         const pData = propertiesRef.current[viewingProperty.id];
+         const assetValue = viewingProperty.price + ((pData.level || 0) * (viewingProperty.hPrice || 0));
+         let tradeCost = 0;
+
+
+         if (viewingProperty.type === 'property') {
+            const currentRent = calculateRent(viewingProperty, pData, pData.ownerId);
+            tradeCost = assetValue + (currentRent * 1.5);
+         } 
+         else if (viewingProperty.type === 'utility' || viewingProperty.type === 'station') {
+            tradeCost = viewingProperty.price * 3;
+         } 
+         else if (viewingProperty.type === 'agriculture' || viewingProperty.type === 'mine') {
+            tradeCost = assetValue * 2.5;
+         }
+
+
+         let isMortgagedNow = pData.isMortgaged;
+         if (isMortgagedNow) {
+             let redeemCost = (viewingProperty.price / 2) + 20;
+             if (isMortgagedNow !== 'land') {
+                 redeemCost += ((pData.level || 0) * (viewingProperty.hPrice || 0) / 2);
+             }
+             // Potong harga tapi minimal seharga aset dasar
+             tradeCost = Math.max(tradeCost - redeemCost, assetValue);
+         }
+
+         const finalTradeCost = Math.floor(tradeCost);
+
+         return (
+             <button onClick={handleTradeRequest} className="w-full py-2 bg-blue-600/20 text-blue-400 border border-blue-600/50 rounded-lg text-xs font-bold hover:bg-blue-600/40 transition-colors">
+                AJUKAN AKUISISI (Bayar Rp{finalTradeCost}K){isMortgagedNow ? ' - Diskon Gadai' : ''}
+             </button>
+         );
+     })()}
+
+     {/* Tombol Kudeta Kartu VIP */}
+     {(currentPlayer.buffs || []).includes('FORCE_ACQUIRE') ? (
+        <button onClick={() => handleKudetaManual(viewingProperty)} className="w-full py-2 bg-purple-600/20 text-purple-400 border border-purple-600/50 rounded-lg text-xs font-bold hover:bg-purple-600/40 flex justify-center items-center gap-1 transition-colors mt-2">
+           <Crosshair size={14}/> KUDETA LAHAN (GRATIS PAKAI KARTU VIP)
+        </button>
+     ) : null}
+  </>
+) : null}
+
 
                         {/* Jika milik sendiri -> Gadai / Tebus */}
                         {propertiesRef.current[viewingProperty.id].ownerId === currentPlayer.id ? (
@@ -3567,7 +3624,7 @@ STRICT OUTPUT JSON MURNI:
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {logs.map((log, i) => (
-                <div key={i} className={`text-xs font-mono p-2.5 rounded-lg border 
+  <div key={`${log}-${i}`} className={`text-xs font-mono p-2.5 rounded-lg border 
                    ${log.includes('🔴 API') || log.includes('System Fallback') ? 'bg-red-900/30 text-red-300 border-red-800/50' : 
                      log.includes('📡 API') || log.includes('🎲 AI Master') || log.includes('🎲 Sistem') ? 'bg-indigo-900/20 text-indigo-300 border-indigo-800/50' : 
                      log.includes('⚡ EFEK') ? 'bg-amber-900/20 text-amber-300 border-amber-800/50' : 
