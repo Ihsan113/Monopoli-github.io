@@ -16,33 +16,81 @@ const initAudio = () => {
   return globalAudioCtx;
 };
 
-const playTone = (type, freq, duration, vol = 0.1) => {
+const playTone = (type, freq, duration, vol = 0.1, delay = 0) => {
   const ctx = initAudio();
   if (!ctx) return;
-  try {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.type = type;
-    osc.frequency.setValueAtTime(freq, ctx.currentTime);
-    gain.gain.setValueAtTime(vol, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.00001, ctx.currentTime + duration);
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.start();
-    osc.stop(ctx.currentTime + duration);
-  } catch (e) {}
+
+  const play = () => {
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type;
+
+      const startTime = ctx.currentTime + delay;
+      
+      osc.frequency.setValueAtTime(freq, startTime);
+      gain.gain.setValueAtTime(vol, startTime);
+      
+      gain.gain.exponentialRampToValueAtTime(0.00001, startTime + duration);
+
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      
+      osc.start(startTime);
+      osc.stop(startTime + duration);
+    } catch (e) {}
+  };
+
+  if (ctx.state === 'suspended') {
+    ctx.resume().then(play).catch(() => {});
+  } else {
+    play();
+  }
 };
 
 const SFX = {
   step: () => playTone('sine', 400, 0.1, 0.05),
-  dice: () => { playTone('square', 600, 0.05); setTimeout(() => playTone('square', 800, 0.05), 50); },
-  coin: () => { playTone('sine', 1200, 0.1); setTimeout(() => playTone('sine', 1600, 0.3), 100); },
-  fail: () => { playTone('sawtooth', 300, 0.3); setTimeout(() => playTone('sawtooth', 200, 0.4), 200); },
-  build: () => { playTone('square', 400, 0.1); setTimeout(() => playTone('square', 600, 0.1), 100); setTimeout(() => playTone('square', 800, 0.2), 200); },
-  magic: () => { playTone('sine', 800, 0.1); setTimeout(() => playTone('sine', 1200, 0.1), 100); setTimeout(() => playTone('sine', 1600, 0.2), 200); },
-  win: () => { playTone('square', 1000, 0.1); setTimeout(() => playTone('square', 1500, 0.2), 100); setTimeout(() => playTone('square', 2000, 0.4), 200); },
-  teleport: () => { playTone('sine', 1500, 0.4, 0.1); setTimeout(() => playTone('sine', 2000, 0.4), 200); }
+  dice: () => { 
+    playTone('square', 600, 0.05); 
+    playTone('square', 800, 0.05, 0.1, 0.05); 
+  },
+  coin: () => { 
+    playTone('sine', 1200, 0.1); 
+    playTone('sine', 1600, 0.3, 0.1, 0.1); 
+  },
+  fail: () => { 
+    playTone('sawtooth', 300, 0.3); 
+    playTone('sawtooth', 200, 0.4, 0.1, 0.2); 
+  },
+  build: () => { 
+    playTone('square', 400, 0.1); 
+    playTone('square', 600, 0.1, 0.1, 0.1); 
+    playTone('square', 800, 0.2, 0.1, 0.2); 
+  },
+  magic: () => { 
+    playTone('sine', 800, 0.1); 
+    playTone('sine', 1200, 0.1, 0.1, 0.1); 
+    playTone('sine', 1600, 0.2, 0.1, 0.2); 
+  },
+  win: () => { 
+    playTone('square', 1000, 0.1); 
+    playTone('square', 1500, 0.2, 0.1, 0.1); 
+    playTone('square', 2000, 0.4, 0.1, 0.2); 
+  },
+  teleport: () => { 
+    playTone('sine', 1500, 0.4, 0.1); 
+    playTone('sine', 2000, 0.4, 0.1, 0.2); 
+  },
+  alarm: () => { 
+    playTone('sawtooth', 800, 0.1); 
+    playTone('sawtooth', 1200, 0.1, 0.1, 0.1); 
+    playTone('sawtooth', 800, 0.1, 0.1, 0.2); 
+    playTone('sawtooth', 1200, 0.1, 0.1, 0.3); 
+  },
+  click: () => playTone('sine', 300, 0.05, 0.05)
 };
+
+
 
 // --- Board Data (56 Tiles - 15x15 Grid) ---
 const BOARD_TILES = [
@@ -185,6 +233,49 @@ export default function App() {
   useEffect(() => { propertiesRef.current = properties; }, [properties]);
   useEffect(() => { aiConfigRef.current = { key: groqApiKey }; }, [groqApiKey]);
   useEffect(() => { gameSettingsRef.current = { startMoney, eventMaxMoney, eventMaxGold, antiqueMaxPrice, assetMaxQty, maxComboCount }; }, [startMoney, eventMaxMoney, eventMaxGold, antiqueMaxPrice, assetMaxQty, maxComboCount]);
+  
+  // Sinkronisasi Data Real-Time
+  useEffect(() => {
+     if (viewingPlayer) {
+         const freshPlayer = players.find(p => p.id === viewingPlayer.id);
+
+         if (freshPlayer) setViewingPlayer(freshPlayer);
+     }
+  }, [players]);
+  
+    
+     // --- ALARM PERINGATAN KRITIS ---
+  const alarmPlayedRef = useRef(false);
+  useEffect(() => {
+     // Kalau UI lagi dikunci (lagi proses bayar), jangan cek/bunyikan alarm!
+     if (uiLocked) return; 
+
+     // Ambil data pemain yang sedang jalan langsung dari state
+     const currPlayer = players[turnIndex];
+     
+     if (activeModal === 'WAIT_ROLL') alarmPlayedRef.current = false;
+     
+     if (!currPlayer || currPlayer.isBot) return;
+
+     let isCritical = false;
+     if (activeModal === 'RENT' && modalData?.rent && currPlayer.money - modalData.rent < 0) isCritical = true;
+     else if (activeModal === 'TAX' && modalData?.price && currPlayer.money - modalData.price < 0) isCritical = true;
+     else if (activeModal === 'QUIZ_RESULT' && modalData && !modalData.isCorrect && !((currPlayer.buffs || []).includes('LOSS_EXEMPTION')) && currPlayer.money - 100 < 0) isCritical = true;
+     else if (activeModal === 'EVENT_RESULT' && modalData?.eventData) {
+         const totalEventLoss = modalData.eventData.effects?.reduce((sum, ev) => ev.type === 'money' && ev.value < 0 ? sum + Math.abs(ev.value) : sum, 0) || 0;
+         if (totalEventLoss > 0 && !((currPlayer.buffs || []).includes('LOSS_EXEMPTION')) && currPlayer.money - totalEventLoss < 0) isCritical = true;
+     }
+
+     // Bunyikan Alarm jika kritis dan belum pernah bunyi di sesi ini
+     if (isCritical && !alarmPlayedRef.current) {
+         playSound('alarm');
+         alarmPlayedRef.current = true;
+     } else if (!isCritical) {
+         alarmPlayedRef.current = false; // Reset kalau player udah berhasil jual aset
+     }
+  }, [activeModal, modalData, players, turnIndex, uiLocked]); // <-- Jangan lupa tambahin uiLocked di array ini
+
+
 
   useEffect(() => {
     if (showLogsMenu) logsEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -985,7 +1076,8 @@ STRICT OUTPUT JSON MURNI:
         }
         break;
 
-      case 'PAY_RENT':
+           case 'PAY_RENT':
+        setUiLocked(true); // Kunci UI biar gak dobel klik & nutup warning
         if (modalData && modalData.rent) {
           const rentAmt = modalData.rent;
           const ownerId = modalData.ownerId;
@@ -1007,15 +1099,19 @@ STRICT OUTPUT JSON MURNI:
                  if (checkBankruptcy(player.id)) {
                      if (checkEndGame()) return;
                      setActiveModal('BANKRUPT');
+                     setUiLocked(false);
                      return;
                  }
              }
              setActiveModal('END_TURN');
+             setUiLocked(false);
           }, 150);
         } else {
           setActiveModal('END_TURN');
+          setUiLocked(false);
         }
         break;
+
 
       case 'PAY_JAIL':
         if (player.money >= 50) {
@@ -1110,10 +1206,12 @@ STRICT OUTPUT JSON MURNI:
         setUiLocked(false);
         break;
 
-      case 'BUY_NO':
+            case 'BUY_NO':
       case 'UPGRADE_NO':
+        playSound('click');
         setActiveModal('END_TURN');
         break;
+
 
       case 'UPGRADE_YES':
         setUiLocked(true);
@@ -1153,9 +1251,11 @@ STRICT OUTPUT JSON MURNI:
         }
         break;
 
-      case 'TELEPORT_CANCEL':
+            case 'TELEPORT_CANCEL':
+        playSound('click');
         setActiveModal('END_TURN');
         break;
+
 
       case 'USE_DEBT_CLEAR_CARD':
         updatePlayerState(player.id, p => ({ debt: 0, buffs: consumeCard(p.buffs, 'DEBT_CLEAR') }));
@@ -1272,13 +1372,15 @@ STRICT OUTPUT JSON MURNI:
         break;
       }
 
-      case 'ACKNOWLEDGE':
+            case 'ACKNOWLEDGE':
+        setUiLocked(true); // Kunci UI biar aman
         if (activeModal === 'TAX' && modalData && modalData.price) {
             const newMoney = processForcedPayment(player, modalData.price, `📉 WAKTU PAJAK! ${player.name} keciduk petugas bayar Pajak Rp${modalData.price}K.`);
             playSound('fail');
             setTimeout(() => {
-               if (newMoney < 0 && checkBankruptcy(player.id)) { if(checkEndGame()) return; setActiveModal('BANKRUPT'); return; }
+               if (newMoney < 0 && checkBankruptcy(player.id)) { if(checkEndGame()) return; setActiveModal('BANKRUPT'); setUiLocked(false); return; }
                setActiveModal('END_TURN');
+               setUiLocked(false);
             }, 100);
             return;
         }
@@ -1418,6 +1520,7 @@ STRICT OUTPUT JSON MURNI:
                    if (checkBankruptcy(freshP.id)) {
                       if(checkEndGame()) return;
                       setActiveModal('BANKRUPT'); 
+                      setUiLocked(false);
                       return;
                    }
                 }
@@ -1438,10 +1541,12 @@ STRICT OUTPUT JSON MURNI:
                         setActiveModal('MOVING');
                         animateMove(player.id, nextActionQueue.value); 
                     }
+                    setUiLocked(false);
                     return; 
                 }
                 
                 setActiveModal('END_TURN');
+                setUiLocked(false);
             }, 150);
             return;
         }
@@ -1465,9 +1570,12 @@ STRICT OUTPUT JSON MURNI:
                const pCheck = playersRef.current[turnIndex];
                if ((pCheck?.money || 0) < 0 && checkBankruptcy(pCheck.id)) { 
                   if(checkEndGame()) return;
-                  setActiveModal('BANKRUPT'); return; 
+                  setActiveModal('BANKRUPT'); 
+                  setUiLocked(false);
+                  return; 
                }
                setActiveModal('END_TURN');
+               setUiLocked(false);
             }, 100);
             return;
         }
@@ -1475,11 +1583,14 @@ STRICT OUTPUT JSON MURNI:
         if (activeModal === 'BANKRUPT') {
           if(checkEndGame()) return;
           setActiveModal('END_TURN');
+          setUiLocked(false);
           return;
         }
 
         setActiveModal('END_TURN');
+        setUiLocked(false);
         break;
+
 
       case 'QUIZ_ANSWER':
         const isCorrect = payload === modalData.answerIndex;
@@ -1508,15 +1619,21 @@ STRICT OUTPUT JSON MURNI:
         setTurnIndex(nextIdx);
         setModalData(null);
         setActiveModal('WAIT_ROLL');
+        playSound('step');
         break;
     }
   };
 
-  const animateMove = async (playerId, steps) => {
+    const animateMove = async (playerId, steps) => {
     const dir = steps > 0 ? 1 : -1;
     const absSteps = Math.abs(steps);
     let passedGo = false;
     let hadDebt = false;
+
+    if (dir === -1) {
+       playSound('fail');
+       await sleep(300); // Kasih jeda sedikit sebelum langkah pertama
+    }
 
     for (let i = 0; i < absSteps; i++) {
       let passedGoThisStep = false;
@@ -1560,6 +1677,7 @@ STRICT OUTPUT JSON MURNI:
     }, 100);
   };
 
+
   const evaluateTile = async (tile, player) => {
     setModalData(tile);
     const props = propertiesRef.current; 
@@ -1584,9 +1702,11 @@ STRICT OUTPUT JSON MURNI:
 
         const owner = playersRef.current.find(p => p.id === props[tile.id].ownerId);
         const rent = calculateRent(tile, props[tile.id], owner.id); 
-        setModalData({ ...tile, rent, ownerName: owner.name, ownerId: owner.id, isMonopoly: hasMonopoly(owner.id, tile.group) });
+        setModalData({ ...tile, rent, ownerName: owner.name, ownerId: owner.id, isMonopoly: hasMonopoly(owner.id, tile.group) });        
+        playSound('fail');     
         setActiveModal('RENT');
         return;
+
     }
 
     if (tile.type === 'station' && props[tile.id]?.ownerId === player.id && !props[tile.id].isMortgaged) {
@@ -1870,7 +1990,7 @@ STRICT OUTPUT JSON MURNI:
       if (propData.isMortgaged !== 'land') {
         redeemCost += ((propData.level || 0) * (targetProp.hPrice || 0) / 2);
       }      
-      cost = Math.max(cost - redeemCost, assetValue); 
+      cost = Math.max(cost - redeemCost, 10);
     }
     const finalCost = Math.floor(cost);   
     if ((player.money || 0) >= finalCost) {
@@ -3031,14 +3151,14 @@ STRICT OUTPUT JSON MURNI:
 
       {/* 0. Pinjaman Bank & Jual Antik */}
       {showBankLoan && currentPlayer && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => {setShowBankLoan(false); setRepayAmount(100);}}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => {setShowBankLoan(false); playSound('click'); setRepayAmount(100);}}>
           <div className="bg-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-blue-600/50 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
                <div className="flex items-center gap-2">
                  <Landmark className="text-blue-400" size={24}/>
                  <h2 className="text-xl font-black text-white">Bank Sentral</h2>
                </div>
-               <button onClick={() => {setShowBankLoan(false); setRepayAmount(100);}} className="text-slate-400 hover:text-white"><X size={20}/></button>
+               <button onClick={() => {setShowBankLoan(false); playSound('click'); setRepayAmount(100);}} className="text-slate-400 hover:text-white"><X size={20}/></button>
             </div>
             
             <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center mb-6">
@@ -3093,14 +3213,16 @@ STRICT OUTPUT JSON MURNI:
 
       {/* 1. Bursa Emas (Gold Market) */}
       {showGoldMarket && currentPlayer && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => setShowGoldMarket(false)}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setShowGoldMarket(false); playSound('click'); }}>
+
           <div className="bg-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-yellow-600/50 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
                <div className="flex items-center gap-2">
                  <Coins className="text-yellow-400" size={24}/>
                  <h2 className="text-xl font-black text-white">Bursa Emas</h2>
                </div>
-               <button onClick={() => setShowGoldMarket(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+               <button onClick={() => { setShowGoldMarket(false); playSound('click'); }} className="text-slate-400 hover:text-white"><X size={20}/></button>
+
             </div>
             
             <div className="bg-slate-900 p-4 rounded-xl border border-slate-700 text-center mb-4">
@@ -3161,14 +3283,14 @@ STRICT OUTPUT JSON MURNI:
 
       {/* 2. Pasar Hasil Pertanian */}
       {showPasarMenu && currentPlayer && (
-        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => setShowPasarMenu(false)}>
+        <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-sm z-[70] flex items-center justify-center p-4" onClick={() => { setShowPasarMenu(false); playSound('click'); }}>
           <div className="bg-slate-800 w-full max-w-sm rounded-3xl p-5 shadow-2xl border border-lime-600/50 flex flex-col" onClick={e => e.stopPropagation()}>
             <div className="flex justify-between items-center mb-6">
                <div className="flex items-center gap-2">
                  <Store className="text-lime-400" size={24}/>
                  <h2 className="text-xl font-black text-white">Pasar Tani</h2>
                </div>
-               <button onClick={() => setShowPasarMenu(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+               <button onClick={() => { setShowPasarMenu(false); playSound('click');}}className="text-slate-400 hover:text-white"><X size={20}/></button>
             </div>
             
             <div className="bg-slate-900 p-3 rounded-xl border border-slate-700 mb-4 text-xs">
@@ -3329,22 +3451,22 @@ STRICT OUTPUT JSON MURNI:
                    <span className="text-[8px] italic normal-case font-normal text-slate-400">*Tap aset untuk lihat info</span>
                </h3>
                <div className="flex-1 max-h-48 space-y-2 pb-2">
-                  {BOARD_TILES.filter(t => propertiesRef.current[t.id]?.ownerId === viewingPlayer.id).length === 0 ? (
+                  {BOARD_TILES.filter(t => properties[t.id]?.ownerId === viewingPlayer.id).length === 0 ? (
                     <div className="text-center text-slate-500 text-xs italic py-4">Belum memiliki lahan satupun.</div>
                   ) : null}
-                  {BOARD_TILES.filter(t => propertiesRef.current[t.id]?.ownerId === viewingPlayer.id).map(t => (
-                    <div key={t.id} onClick={() => { setViewingPlayer(null); setViewingProperty(t); }} className={`flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border cursor-pointer hover:bg-slate-800 transition-colors ${propertiesRef.current[t.id]?.isMortgaged ? 'border-red-900/50 opacity-50' : 'border-slate-700/50'}`}>
+                  {BOARD_TILES.filter(t => properties[t.id]?.ownerId === viewingPlayer.id).map(t => (
+                    <div key={t.id} onClick={() => { setViewingPlayer(null); setViewingProperty(t); }} className={`flex justify-between items-center bg-slate-900/50 p-2 rounded-lg border cursor-pointer hover:bg-slate-800 transition-colors ${properties[t.id]?.isMortgaged ? 'border-red-900/50 opacity-50' : 'border-slate-700/50'}`}>
                        <div className="flex items-center gap-2">
                          {t.color ? <div className={`w-2 h-6 rounded-sm ${t.color}`} /> : null}
                          <span className="font-bold text-sm text-slate-200">{t.name}</span>
-                         {propertiesRef.current[t.id]?.isMortgaged === 'full' ? <span className="text-[8px] bg-red-800 text-white px-1 rounded">GADAI FULL</span> : null}
-                         {propertiesRef.current[t.id]?.isMortgaged === 'land' ? <span className="text-[8px] bg-orange-800 text-white px-1 rounded">GADAI TANAH</span> : null}
+                         {properties[t.id]?.isMortgaged === 'full' ? <span className="text-[8px] bg-red-800 text-white px-1 rounded">GADAI FULL</span> : null}
+                         {properties[t.id]?.isMortgaged === 'land' ? <span className="text-[8px] bg-orange-800 text-white px-1 rounded">GADAI TANAH</span> : null}
                        </div>
-                       {(!propertiesRef.current[t.id]?.isMortgaged || propertiesRef.current[t.id]?.isMortgaged === 'land') ? (
+                       {(!properties[t.id]?.isMortgaged || properties[t.id]?.isMortgaged === 'land') ? (
                          <div className="flex gap-1 text-[8px]">
-                           {t.type === 'property' && (propertiesRef.current[t.id]?.level || 0) > 0 && (propertiesRef.current[t.id]?.level || 0) < 5 ? Array(propertiesRef.current[t.id].level).fill(0).map((_,i) => <span key={i}>🏠</span>) : null}
-                           {t.type === 'property' && propertiesRef.current[t.id]?.level === 5 ? <span>🏨</span> : null}
-                           {(t.type === 'agriculture' || t.type === 'mine') && (propertiesRef.current[t.id]?.level || 0) > 0 ? Array(propertiesRef.current[t.id].level).fill(0).map((_,i) => <span key={i}>⭐</span>) : null}
+                           {t.type === 'property' && (properties[t.id]?.level || 0) > 0 && (properties[t.id]?.level || 0) < 5 ? Array(properties[t.id].level).fill(0).map((_,i) => <span key={i}>🏠</span>) : null}
+                           {t.type === 'property' && properties[t.id]?.level === 5 ? <span>🏨</span> : null}
+                           {(t.type === 'agriculture' || t.type === 'mine') && (properties[t.id]?.level || 0) > 0 ? Array(properties[t.id].level).fill(0).map((_,i) => <span key={i}>⭐</span>) : null}
                          </div>
                        ) : null}
                     </div>
@@ -3510,7 +3632,7 @@ STRICT OUTPUT JSON MURNI:
                  redeemCost += ((pData.level || 0) * (viewingProperty.hPrice || 0) / 2);
              }
              // Potong harga tapi minimal seharga aset dasar
-             tradeCost = Math.max(tradeCost - redeemCost, assetValue);
+             tradeCost = Math.max(tradeCost - redeemCost, 10);
          }
 
          const finalTradeCost = Math.floor(tradeCost);
